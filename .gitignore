@@ -24,4 +24,4 @@ dist-ssr
 *.sw?
 
 # Powershell script
-create-clean-repo.ps1
+/create-clean-repo.ps1
