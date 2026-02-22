@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 30 25% 97%;
+    --foreground: 20 18% 14%;
+
+    --card: 30 20% 95%;
+    --card-foreground: 20 18% 14%;
+
+    --popover: 30 25% 97%;
+    --popover-foreground: 20 18% 14%;
+
+    --primary: 28 38% 48%;
+    --primary-foreground: 30 25% 97%;
+
+    --secondary: 30 20% 88%;
+    --secondary-foreground: 20 18% 14%;
+
+    --muted: 30 15% 90%;
+    --muted-foreground: 20 10% 45%;
+
+    --accent: 28 38% 48%;
+    --accent-foreground: 30 25% 97%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 30 15% 85%;
+    --input: 30 15% 85%;
+    --ring: 28 38% 48%;
+
+    --radius: 0.5rem;
+
+    --safe: 142 71% 45%;
+    --safe-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 20 18% 14%;
+    --critical: 0 84% 60%;
+    --critical-foreground: 0 0% 100%;
+
+    --copper: 28 38% 48%;
+    --copper-light: 28 40% 60%;
+    --sand: 30 25% 88%;
+    --sand-light: 30 25% 97%;
+    --stone: 28 14% 45%;
+    --charcoal: 20 18% 14%;
+    --terracotta: 20 40% 65%;
+
+    --sidebar-background: 20 18% 14%;
+    --sidebar-foreground: 30 20% 88%;
+    --sidebar-primary: 28 38% 48%;
+    --sidebar-primary-foreground: 30 25% 97%;
+    --sidebar-accent: 20 15% 22%;
+    --sidebar-accent-foreground: 30 20% 88%;
+    --sidebar-border: 20 12% 25%;
+    --sidebar-ring: 28 38% 48%;
+
+    --font-heading: 'Playfair Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  .dark {
+    --background: 20 18% 10%;
+    --foreground: 30 20% 88%;
+    --card: 20 15% 14%;
+    --card-foreground: 30 20% 88%;
+    --popover: 20 15% 14%;
+    --popover-foreground: 30 20% 88%;
+    --primary: 28 40% 55%;
+    --primary-foreground: 20 18% 10%;
+    --secondary: 20 12% 22%;
+    --secondary-foreground: 30 20% 88%;
+    --muted: 20 12% 22%;
+    --muted-foreground: 30 10% 55%;
+    --accent: 20 12% 22%;
+    --accent-foreground: 30 20% 88%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 20 12% 25%;
+    --input: 20 12% 25%;
+    --ring: 28 40% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer components {
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  .text-safe {
+    color: hsl(var(--safe));
+  }
+  .text-warning {
+    color: hsl(var(--warning));
+  }
+  .text-critical {
+    color: hsl(var(--critical));
+  }
+  .bg-safe {
+    background-color: hsl(var(--safe));
+  }
+  .bg-warning {
+    background-color: hsl(var(--warning));
+  }
+  .bg-critical {
+    background-color: hsl(var(--critical));
+  }
+  .bg-safe\/10 {
+    background-color: hsl(var(--safe) / 0.1);
+  }
+  .bg-warning\/10 {
+    background-color: hsl(var(--warning) / 0.1);
+  }
+  .bg-critical\/10 {
+    background-color: hsl(var(--critical) / 0.1);
+  }
+}
