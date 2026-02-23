@@ -95,6 +95,4 @@ npm run build
 
 The built files will be in the `dist` directory, ready to be deployed to any static hosting service.
 
-## License
 
-This project is private and proprietary.
