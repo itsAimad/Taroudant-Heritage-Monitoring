@@ -127,5 +127,8 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    // @ts-expect-error: TypeScript may not recognize require in ESM context
+    require("tailwindcss-animate") as never
+  ],
 } satisfies Config;
