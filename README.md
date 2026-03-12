@@ -19,7 +19,7 @@
 [![Status](https://www.arabamerica.com/wp-content/uploads/2022/02/Taroudant-Morocco-4-scaled-1.jpeg)](.)
 [![Database](https://img.shields.io/badge/Database-MySQL%203NF-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](.)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20+%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](.)
-[![Backend](https://img.shields.io/badge/Backend-Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](.)
+[![Backend](https://img.shields.io/badge/Backend-Python-339933?style=for-the-badge&logo=python&logoColor=blue)](.)
 [![Security](https://img.shields.io/badge/Security-AES--256%20+%20RBAC-DC143C?style=for-the-badge&logo=shield&logoColor=white)](.)
 [![Academic](https://img.shields.io/badge/Type-Academic%20Project-8A2BE2?style=for-the-badge)](.)
 
