@@ -5,6 +5,7 @@ import { Shield, AlertTriangle, CheckCircle, Clock, Activity, Users, FileText, S
 import { motion } from 'framer-motion';
 import CountUp from 'react-countup';
 import { getRiskBgColor } from '@/utils/riskCalculation';
+import AccessRequestsPanel from '@/components/admin/AccessRequestsPanel';
 
 const StatCard = ({ icon: Icon, label, value, color }: { icon: any; label: string; value: number | string; color?: string }) => (
   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-lg p-5">
@@ -112,6 +113,11 @@ const Dashboard = () => {
                 </Link>
               </div>
             </div>
+
+            {/* Access Requests (admin only) */}
+            {user.role === 'admin' && (
+              <AccessRequestsPanel />
+            )}
           </div>
         </div>
       </div>
