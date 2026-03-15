@@ -1,24 +1,144 @@
+import React, { Suspense } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import Navbar from "@/components/layout/Navbar";
 import PrivateRoute from "@/components/PrivateRoute";
-import Home from "@/pages/Home";
-import Login from "@/pages/Login";
-import HeritageExplorer from "@/pages/HeritageExplorer";
-import About from "@/pages/About";
-import Dashboard from "@/pages/Dashboard";
-import MonumentDetail from "@/pages/MonumentDetail";
-import RiskLab from "@/pages/RiskLab";
-import Analytics from "@/pages/Analytics";
-import ArchitecturePage from "@/pages/ArchitecturePage";
-import UserManagement from "@/pages/UserManagement";
-import NotFound from "@/pages/NotFound";
+import AppLoader from "@/components/ui/AppLoader";
+import PageTransition from "@/components/ui/PageTransition";
+
+const Home = React.lazy(() => import("@/pages/Home"));
+const Login = React.lazy(() => import("@/pages/Login"));
+const HeritageExplorer = React.lazy(() => import("@/pages/HeritageExplorer"));
+const About = React.lazy(() => import("@/pages/About"));
+const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
+const MonumentDetail = React.lazy(() => import("@/pages/MonumentDetail"));
+const RiskLab = React.lazy(() => import("@/pages/RiskLab"));
+const Analytics = React.lazy(() => import("@/pages/Analytics"));
+const ArchitecturePage = React.lazy(() => import("@/pages/ArchitecturePage"));
+const UserManagement = React.lazy(() => import("@/pages/UserManagement"));
+const MapView = React.lazy(() => import("@/pages/MapView"));
+const NotFound = React.lazy(() => import("@/pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+const AppRoutes = () => {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Suspense fallback={<AppLoader static />}>
+        <Routes location={location} key={location.pathname}>
+          <Route
+            path="/"
+            element={
+              <PageTransition>
+                <Home />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/heritage"
+            element={
+              <PageTransition>
+                <HeritageExplorer />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/about"
+            element={
+              <PageTransition>
+                <About />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <PageTransition>
+                <Login />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/map"
+            element={
+              <PageTransition>
+                <MapView />
+              </PageTransition>
+            }
+          />
+          {/* Protected Routes */}
+          <Route element={<PrivateRoute />}>
+            <Route
+              path="/dashboard"
+              element={
+                <PageTransition>
+                  <Dashboard />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/monument/:id"
+              element={
+                <PageTransition>
+                  <MonumentDetail />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/risk-lab"
+              element={
+                <PageTransition>
+                  <RiskLab />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <PageTransition>
+                  <Analytics />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/architecture"
+              element={
+                <PageTransition>
+                  <ArchitecturePage />
+                </PageTransition>
+              }
+            />
+          </Route>
+          <Route element={<PrivateRoute allowedRoles={['admin']} />}>
+            <Route
+              path="/users"
+              element={
+                <PageTransition>
+                  <UserManagement />
+                </PageTransition>
+              }
+            />
+          </Route>
+          <Route
+            path="*"
+            element={
+              <PageTransition>
+                <NotFound />
+              </PageTransition>
+            }
+          />
+        </Routes>
+      </Suspense>
+    </AnimatePresence>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -28,25 +148,16 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Navbar />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/heritage" element={<HeritageExplorer />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/login" element={<Login />} />
-            {/* Protected Routes */}
-            <Route element={<PrivateRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/monument/:id" element={<MonumentDetail />} />
-              <Route path="/risk-lab" element={<RiskLab />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/architecture" element={<ArchitecturePage />} />
-            </Route>
-            <Route element={<PrivateRoute allowedRoles={['admin']} />}>
-              <Route path="/users" element={<UserManagement />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
+          >
+            <AppRoutes />
+          </motion.div>
         </BrowserRouter>
+        {/* Top-level preloader overlay */}
+        <AppLoader />
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>
