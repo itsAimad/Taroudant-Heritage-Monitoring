@@ -36,8 +36,8 @@ const monuments = [
   {
     name: 'Bab Zourgane',
     type: 'GATE',
-    riskLabel: 'MODERATE',
-    riskLevel: 'MODERATE',
+    riskLabel: 'MEDIUM',
+    riskLevel: 'MEDIUM',
     badgeTone: 'amber',
     score: 42,
     imgLabel: '/assets/bab_zourgane.png',
@@ -91,8 +91,8 @@ const monuments = [
   {
     name: 'Souk El Had Wall',
     type: 'WALL SECTION',
-    riskLabel: 'MODERATE',
-    riskLevel: 'MODERATE',
+    riskLabel: 'MEDIUM',
+    riskLevel: 'MEDIUM',
     badgeTone: 'amber',
     score: 55,
     imgLabel: 'souk-el-had-inner-wall.jpg',
@@ -684,7 +684,7 @@ const Home = () => {
                         Severity
                       </div>
                       <div className="flex items-center justify-between rounded border border-sand/15 bg-black/20 px-2.5 py-1.5">
-                        <span>Moderate</span>
+                        <span>Medium</span>
                         <span className="rounded-full bg-amber-900/40 px-2 py-0.5 text-[10px] text-amber-300">
                           3 pts
                         </span>
