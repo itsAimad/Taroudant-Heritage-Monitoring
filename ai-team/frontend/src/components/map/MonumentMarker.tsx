@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { Monument } from '@/services/monumentService';
+import { Monument, getRiskLevel } from '@/services/monumentService';
 
 const riskColors = {
   low: {
@@ -7,7 +7,7 @@ const riskColors = {
     glow: 'rgba(22,163,74,0.4)',
     border: '#14532d',
   },
-  moderate: {
+  medium: {
     fill: '#ca8a04',
     glow: 'rgba(202,138,4,0.4)',
     border: '#713f12',
@@ -25,11 +25,12 @@ const riskColors = {
 };
 
 export const createMonumentIcon = (monument: Monument, isMobile: boolean = false) => {
-  const color = riskColors[monument.riskLevel];
+  const risk = monument.risk_level ?? getRiskLevel(monument.vulnerability_score);
+  const color = riskColors[risk];
   const size = isMobile ? 44 : 36;
 
   const doublePulse =
-    monument.riskLevel === 'critical'
+    risk === 'critical'
       ? `<div style="
             position:absolute;
             inset:0;
@@ -68,7 +69,7 @@ export const createMonumentIcon = (monument: Monument, isMobile: boolean = false
         color: white;
         font-weight: 600;
       ">
-        ${monument.vulnerabilityScore}
+        ${monument.vulnerability_score ?? 0}
       </div>
     </div>
   `;

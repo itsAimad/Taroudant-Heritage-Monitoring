@@ -142,11 +142,11 @@ const AppRoutes = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <BrowserRouter>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
           <Navbar />
           <motion.div
             initial={{ opacity: 0 }}
@@ -155,11 +155,11 @@ const App = () => (
           >
             <AppRoutes />
           </motion.div>
-        </BrowserRouter>
-        {/* Top-level preloader overlay */}
-        <AppLoader />
-      </TooltipProvider>
-    </AuthProvider>
+          {/* Top-level preloader overlay */}
+          <AppLoader />
+        </TooltipProvider>
+      </AuthProvider>
+    </BrowserRouter>
   </QueryClientProvider>
 );
 

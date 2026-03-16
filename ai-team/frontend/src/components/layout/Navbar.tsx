@@ -67,7 +67,7 @@ const Navbar = () => {
             {isAuthenticated && user ? (
               <>
                 <Badge className={`${roleBadgeColor} text-xs`}>{user.role}</Badge>
-                <span className={`text-sm ${isHome ? 'text-sand/80' : 'text-muted-foreground'}`}>{user.name.split(' ')[0]}</span>
+                <span className={`text-sm ${isHome ? 'text-sand/80' : 'text-muted-foreground'}`}>{user.full_name?.split(' ')[0] || 'User'}</span>
                 <Button variant="ghost" size="sm" onClick={handleLogout} className={isHome ? 'text-sand/70 hover:text-sand' : ''}>
                   <LogOut className="h-4 w-4" />
                 </Button>

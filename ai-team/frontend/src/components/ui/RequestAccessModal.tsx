@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Shield, X, ChevronDown, CheckCircle2 } from 'lucide-react';
-import { accessRequestService } from '@/services/accessRequestService';
+import { authService, ApiError } from '@/services/authService';
 
 interface RequestAccessModalProps {
   isOpen: boolean;
@@ -61,24 +61,35 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
     setStatus('idle');
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!validate()) return;
-
-    setStatus('loading');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!validate()) return
+    setStatus('loading')
     try {
-      await accessRequestService.submitRequest({
-        fullName: form.fullName,
-        email: form.email,
+      await authService.submitAccessRequest({
+        full_name:    form.fullName,
+        email:        form.email,
         organization: form.organization,
-        role: form.role as 'inspector' | 'authority',
-        reason: form.reason,
-      });
-      setStatus('success');
-    } catch {
-      setStatus('error');
+        role:         form.role,
+        reason:       form.reason,
+      })
+      setStatus('success')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          setErrors(prev => ({ ...prev, email: err.detail }))
+          setStatus('idle')
+          return
+        }
+        if (err.status === 422) {
+          setErrors(prev => ({ ...prev, reason: 'Please check your input and try again.' }))
+          setStatus('idle')
+          return
+        }
+      }
+      setStatus('error')
     }
-  };
+  }
 
   const handleClose = () => {
     if (status === 'loading') return;
@@ -203,7 +214,7 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
                     onChange={(e) => handleChange('fullName', e.target.value)}
                     className={`w-full rounded-md border border-sand/10 bg-sand/5 px-4 py-2.5 text-sm text-sand placeholder:text-sand/25 focus:outline-none focus:border-copper-light/40 focus:bg-sand/8 transition-colors duration-200 ${errors.fullName ? 'border-red-500/50 bg-red-950/10' : ''
                       }`}
-                    placeholder="e.g. Fatima Zahra El Idrissi"
+                    placeholder="e.g. Aimad Bouya"
                   />
                   {errors.fullName && (
                     <p className="mt-1 text-xs text-red-400/80">

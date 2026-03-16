@@ -3,34 +3,34 @@ import { MapContainer, Marker, TileLayer, ZoomControl } from 'react-leaflet';
 import type { Map as LeafletMap } from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Clock, Menu } from 'lucide-react';
-import { monumentService, Monument } from '@/services/monumentService';
+import { monumentService, Monument, getRiskLevel } from '@/services/monumentService';
 import { createMonumentIcon } from '@/components/map/MonumentMarker';
 
 const riskGradient = {
   low: 'linear-gradient(90deg, #14532d, #16a34a)',
-  moderate: 'linear-gradient(90deg, #713f12, #ca8a04)',
+  medium: 'linear-gradient(90deg, #713f12, #ca8a04)',
   high: 'linear-gradient(90deg, #78350f, #d97706)',
   critical: 'linear-gradient(90deg, #7f1d1d, #dc2626)',
 };
 const riskTextColor = {
   low: 'text-emerald-400',
-  moderate: 'text-yellow-400',
+  medium: 'text-yellow-400',
   high: 'text-amber-400',
   critical: 'text-red-400',
 };
 const riskCircleStyle = {
   low: 'border-emerald-700 text-emerald-400',
-  moderate: 'border-yellow-700 text-yellow-400',
+  medium: 'border-yellow-700 text-yellow-400',
   high: 'border-amber-700 text-amber-400',
   critical: 'border-red-700 text-red-400',
 };
 const riskPillActive: Record<
-  'all' | 'low' | 'moderate' | 'high' | 'critical',
+  'all' | 'low' | 'medium' | 'high' | 'critical',
   string
 > = {
   all: 'border-sand/40 text-sand/80 bg-sand/10',
   low: 'border-emerald-700 text-emerald-400 bg-emerald-900/20',
-  moderate: 'border-yellow-700 text-yellow-400  bg-yellow-900/20',
+  medium: 'border-yellow-700 text-yellow-400  bg-yellow-900/20',
   high: 'border-amber-700  text-amber-400   bg-amber-900/20',
   critical: 'border-red-700   text-red-400     bg-red-900/20',
 };
@@ -44,7 +44,7 @@ const relativeTime = (iso: string): string => {
   return `${Math.floor(hrs / 24)}d ago`;
 };
 
-type RiskFilter = 'all' | 'low' | 'moderate' | 'high' | 'critical';
+type RiskFilter = 'all' | 'low' | 'medium' | 'high' | 'critical';
 
 const MapView = () => {
   const [monuments, setMonuments] = useState<Monument[]>([]);
@@ -53,6 +53,7 @@ const MapView = () => {
   );
   const [filter, setFilter] = useState<RiskFilter>('all');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
   const mapRef = useRef<LeafletMap | null>(null);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -75,21 +76,26 @@ const MapView = () => {
   }, [drawerOpen]);
 
   useEffect(() => {
-    monumentService.getAll().then(setMonuments);
-  }, []);
+    monumentService.getAll().then(data => {
+      setMonuments(data)
+      setLoading(false)
+    }).catch(() => {
+      setLoading(false)
+    })
+  }, [])
 
   const filteredMonuments = useMemo(
     () =>
       monuments
         .filter(
-          (m) => filter === 'all' || m.riskLevel === filter,
+          (m) => filter === 'all' || (m.risk_level ?? getRiskLevel(m.vulnerability_score)) === filter,
         )
         .filter((m) => {
           if (!search.trim()) return true;
           const q = search.toLowerCase();
           return (
             m.name.toLowerCase().includes(q) ||
-            m.nameAr.includes(search)
+            m.city.toLowerCase().includes(q)
           );
         }),
     [monuments, filter, search],
@@ -97,6 +103,22 @@ const MapView = () => {
 
   return (
     <div className={isMobile ? "flex flex-col h-[calc(100vh-64px)] bg-[#0f0d0b] relative overflow-hidden" : "flex h-[calc(100vh-64px)] bg-[#0f0d0b] overflow-hidden"}>
+
+      {loading && (
+        <div className="absolute inset-0 z-[9999]
+                        flex items-center justify-center
+                        bg-charcoal/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 rounded-full border-2
+                            border-sand/10 border-t-copper-light
+                            animate-spin" />
+            <span className="text-sand/40 text-xs font-mono
+                             tracking-wider">
+              LOADING MONUMENTS...
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Drawer on Mobile */}
       <AnimatePresence>
@@ -129,7 +151,7 @@ const MapView = () => {
 
               <div className="px-4 py-3 border-b border-sand/8">
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
-                  {(['all', 'low', 'moderate', 'high', 'critical'] as RiskFilter[]).map((level) => (
+                  {(['all', 'low', 'medium', 'high', 'critical'] as RiskFilter[]).map((level) => (
                     <button
                       key={level}
                       onClick={() => setFilter(level)}
@@ -159,7 +181,7 @@ const MapView = () => {
                       setSelectedMonument(mon);
                       setDrawerOpen(false);
                       if (mapRef.current) {
-                        mapRef.current.setView(mon.coordinates, 17, { animate: true });
+                        mapRef.current.setView([mon.latitude ?? 30.4748, mon.longitude ?? -8.872], 17, { animate: true });
                       }
                     }}
                     className={`w-full text-left px-5 py-4 border-b border-sand/5 hover:bg-sand/5 transition-colors group ${selectedMonument?.id === mon.id ? 'bg-sand/8' : ''}`}
@@ -167,20 +189,19 @@ const MapView = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-sand group-hover:text-sand-light transition-colors">{mon.name}</p>
-                        <p className="mt-0.5 text-[11px] text-sand/35">{mon.nameAr}</p>
                         <p className="mt-1 text-[10px] capitalize text-sand/30">{mon.type}</p>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-1">
-                        <div className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-mono font-medium ${riskCircleStyle[mon.riskLevel]}`}>
-                          {mon.vulnerabilityScore}
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-mono font-medium ${riskCircleStyle[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
+                          {mon.vulnerability_score ?? 0}
                         </div>
-                        <span className={`text-[9px] uppercase tracking-wider ${riskTextColor[mon.riskLevel]}`}>
-                          {mon.riskLevel}
+                        <span className={`text-[9px] uppercase tracking-wider ${riskTextColor[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
+                          {mon.risk_level ?? getRiskLevel(mon.vulnerability_score)}
                         </span>
                       </div>
                     </div>
                     <div className="mt-2.5 h-[2px] overflow-hidden rounded-full bg-sand/8">
-                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${mon.vulnerabilityScore}%`, background: riskGradient[mon.riskLevel] }} />
+                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${mon.vulnerability_score ?? 0}%`, background: riskGradient[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)] }} />
                     </div>
                   </button>
                 ))}
@@ -194,7 +215,7 @@ const MapView = () => {
                 {[
                   { level: 'critical', label: 'Critical (76–100)', color: '#dc2626' },
                   { level: 'high', label: 'High (51–75)', color: '#d97706' },
-                  { level: 'moderate', label: 'Moderate (26–50)', color: '#ca8a04' },
+                  { level: 'medium', label: 'Medium (26–50)', color: '#ca8a04' },
                   { level: 'low', label: 'Low (0–25)', color: '#16a34a' },
                 ].map((item) => (
                   <div key={item.level} className="mb-2 flex items-center gap-2.5">
@@ -216,7 +237,7 @@ const MapView = () => {
             <h2 className="font-heading text-lg text-sand-light">Monument Map</h2>
             <p className="mt-1 text-xs text-sand/40">{monuments.length} sites under monitoring</p>
             <div className="mt-4 flex flex-wrap gap-2">
-              {(['all', 'low', 'moderate', 'high', 'critical'] as RiskFilter[]).map((level) => (
+              {(['all', 'low', 'medium', 'high', 'critical'] as RiskFilter[]).map((level) => (
                 <button
                   key={level}
                   type="button"
@@ -247,7 +268,7 @@ const MapView = () => {
                 onClick={() => {
                   setSelectedMonument(mon);
                   if (mapRef.current) {
-                    mapRef.current.setView(mon.coordinates, 17, { animate: true });
+                    mapRef.current.setView([mon.latitude ?? 30.4748, mon.longitude ?? -8.872], 17, { animate: true });
                   }
                 }}
                 className={`group w-full border-b border-sand/5 px-5 py-4 text-left text-sm transition-colors hover:bg-sand/5 ${selectedMonument?.id === mon.id ? 'bg-sand/8' : ''}`}
@@ -255,20 +276,19 @@ const MapView = () => {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-sm font-medium text-sand group-hover:text-sand-light transition-colors">{mon.name}</p>
-                    <p className="mt-0.5 text-[11px] text-sand/35">{mon.nameAr}</p>
                     <p className="mt-1 text-[10px] capitalize text-sand/30">{mon.type}</p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-mono font-medium ${riskCircleStyle[mon.riskLevel]}`}>
-                      {mon.vulnerabilityScore}
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-mono font-medium ${riskCircleStyle[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
+                      {mon.vulnerability_score ?? 0}
                     </div>
-                    <span className={`text-[9px] uppercase tracking-wider ${riskTextColor[mon.riskLevel]}`}>
-                      {mon.riskLevel}
+                    <span className={`text-[9px] uppercase tracking-wider ${riskTextColor[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
+                      {mon.risk_level ?? getRiskLevel(mon.vulnerability_score)}
                     </span>
                   </div>
                 </div>
                 <div className="mt-2.5 h-[2px] overflow-hidden rounded-full bg-sand/8">
-                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${mon.vulnerabilityScore}%`, background: riskGradient[mon.riskLevel] }} />
+                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${mon.vulnerability_score ?? 0}%`, background: riskGradient[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)] }} />
                 </div>
               </button>
             ))}
@@ -282,7 +302,7 @@ const MapView = () => {
             {[
               { level: 'critical', label: 'Critical (76–100)', color: '#dc2626' },
               { level: 'high', label: 'High (51–75)', color: '#d97706' },
-              { level: 'moderate', label: 'Moderate (26–50)', color: '#ca8a04' },
+              { level: 'medium', label: 'Medium (26–50)', color: '#ca8a04' },
               { level: 'low', label: 'Low (0–25)', color: '#16a34a' },
             ].map((item) => (
               <div key={item.level} className="mb-2 flex items-center gap-2.5">
@@ -314,14 +334,16 @@ const MapView = () => {
           />
           <ZoomControl position="bottomright" />
 
-          {filteredMonuments.map((mon) => (
-            <Marker
-              key={mon.id}
-              position={mon.coordinates}
-              icon={createMonumentIcon(mon, isMobile)}
-              eventHandlers={{ click: () => setSelectedMonument(mon) }}
-            />
-          ))}
+          {filteredMonuments
+            .filter(m => m.latitude !== null && m.longitude !== null)
+            .map(mon => (
+              <Marker
+                key={mon.id}
+                position={[mon.latitude!, mon.longitude!]}
+                icon={createMonumentIcon(mon, isMobile)}
+                eventHandlers={{ click: () => setSelectedMonument(mon) }}
+              />
+            ))}
         </MapContainer>
 
         {/* TOP BAR overlay on map (Mobile only) */}
@@ -375,18 +397,17 @@ const MapView = () => {
               </button>
 
               <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-copper-light/60">
-                {selectedMonument.type}
+                {selectedMonument.type ?? 'Monument'}
               </span>
               <h3 className="pr-6 font-heading text-lg text-sand-light">{selectedMonument.name}</h3>
-              <p className="mt-0.5 text-xs text-sand/35">{selectedMonument.nameAr}</p>
 
               <div className="mt-3 flex items-center gap-3">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 font-mono text-sm font-medium ${riskCircleStyle[selectedMonument.riskLevel]}`}>
-                  {selectedMonument.vulnerabilityScore}
+                <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 font-mono text-sm font-medium ${riskCircleStyle[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
+                  {selectedMonument.vulnerability_score ?? 0}
                 </div>
                 <div>
-                  <p className={`text-sm font-medium capitalize ${riskTextColor[selectedMonument.riskLevel]}`}>
-                    {selectedMonument.riskLevel} Risk
+                  <p className={`text-sm font-medium capitalize ${riskTextColor[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
+                    {selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)} Risk
                   </p>
                   <p className="text-xs text-sand/35">Vulnerability Score</p>
                 </div>
@@ -395,30 +416,30 @@ const MapView = () => {
               <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-sand/8">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${selectedMonument.vulnerabilityScore}%` }}
+                  animate={{ width: `${selectedMonument.vulnerability_score ?? 0}%` }}
                   transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
                   className="h-full rounded-full"
-                  style={{ background: riskGradient[selectedMonument.riskLevel] }}
+                  style={{ background: riskGradient[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)] }}
                 />
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Dynasty', value: selectedMonument.dynasty },
-                  { label: 'Built', value: selectedMonument.builtCentury },
-                  { label: 'Inspections', value: selectedMonument.inspectionCount },
-                  { label: 'Active Cracks', value: selectedMonument.activeCracks },
+                  { label: 'Built', value: selectedMonument.construction_year ?? 'Unknown' },
+                  { label: 'City', value: selectedMonument.city },
+                  { label: 'Status', value: selectedMonument.status },
+                  { label: 'Location', value: selectedMonument.location },
                 ].map((item) => (
                   <div key={item.label} className="rounded-md bg-sand/5 px-3 py-2">
                     <p className="text-[10px] uppercase tracking-wider text-sand/35">{item.label}</p>
-                    <p className="mt-0.5 text-sm font-medium text-sand">{item.value}</p>
+                    <p className="mt-0.5 text-sm font-medium text-sand truncate" title={String(item.value)}>{item.value}</p>
                   </div>
                 ))}
               </div>
               <p className="mt-4 text-xs leading-relaxed text-sand/45">{selectedMonument.description}</p>
               <p className="mt-3 flex items-center gap-1.5 text-[11px] text-sand/25">
                 <Clock className="h-3 w-3" />
-                Last inspection: {relativeTime(selectedMonument.lastInspection)}
+                Last inspection: {selectedMonument.last_inspection ? relativeTime(selectedMonument.last_inspection) : 'Never'}
               </p>
             </motion.div>
           )}
@@ -443,18 +464,17 @@ const MapView = () => {
               </button>
 
               <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-copper-light/60">
-                {selectedMonument.type}
+                {selectedMonument.type ?? 'Monument'}
               </span>
               <h3 className="pr-6 font-heading text-lg text-sand-light">{selectedMonument.name}</h3>
-              <p className="mt-0.5 text-xs text-sand/35">{selectedMonument.nameAr}</p>
 
               <div className="mt-3 flex items-center gap-3">
-                <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 font-mono text-sm font-medium ${riskCircleStyle[selectedMonument.riskLevel]}`}>
-                  {selectedMonument.vulnerabilityScore}
+                <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 font-mono text-sm font-medium ${riskCircleStyle[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
+                  {selectedMonument.vulnerability_score ?? 0}
                 </div>
                 <div>
-                  <p className={`text-sm font-medium capitalize ${riskTextColor[selectedMonument.riskLevel]}`}>
-                    {selectedMonument.riskLevel} Risk
+                  <p className={`text-sm font-medium capitalize ${riskTextColor[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
+                    {selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)} Risk
                   </p>
                   <p className="text-xs text-sand/35">Vulnerability Score</p>
                 </div>
@@ -463,30 +483,30 @@ const MapView = () => {
               <div className="mt-3 h-[3px] overflow-hidden rounded-full bg-sand/8">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${selectedMonument.vulnerabilityScore}%` }}
+                  animate={{ width: `${selectedMonument.vulnerability_score ?? 0}%` }}
                   transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
                   className="h-full rounded-full"
-                  style={{ background: riskGradient[selectedMonument.riskLevel] }}
+                  style={{ background: riskGradient[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)] }}
                 />
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Dynasty', value: selectedMonument.dynasty },
-                  { label: 'Built', value: selectedMonument.builtCentury },
-                  { label: 'Inspections', value: selectedMonument.inspectionCount },
-                  { label: 'Active Cracks', value: selectedMonument.activeCracks },
+                  { label: 'Built', value: selectedMonument.construction_year ?? 'Unknown' },
+                  { label: 'City', value: selectedMonument.city },
+                  { label: 'Status', value: selectedMonument.status },
+                  { label: 'Location', value: selectedMonument.location },
                 ].map((item) => (
                   <div key={item.label} className="rounded-md bg-sand/5 px-3 py-2">
                     <p className="text-[10px] uppercase tracking-wider text-sand/35">{item.label}</p>
-                    <p className="mt-0.5 text-sm font-medium text-sand">{item.value}</p>
+                    <p className="mt-0.5 text-sm font-medium text-sand truncate" title={String(item.value)}>{item.value}</p>
                   </div>
                 ))}
               </div>
               <p className="mt-4 text-xs leading-relaxed text-sand/45">{selectedMonument.description}</p>
               <p className="mt-3 flex items-center gap-1.5 text-[11px] text-sand/25">
                 <Clock className="h-3 w-3" />
-                Last inspection: {relativeTime(selectedMonument.lastInspection)}
+                Last inspection: {selectedMonument.last_inspection ? relativeTime(selectedMonument.last_inspection) : 'Never'}
               </p>
             </motion.div>
           )}
