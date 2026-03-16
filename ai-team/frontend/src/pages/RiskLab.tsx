@@ -64,7 +64,7 @@ const RiskLab = () => {
                   <SelectContent>
                     <SelectItem value="0">None (0)</SelectItem>
                     <SelectItem value="1">Minor (1)</SelectItem>
-                    <SelectItem value="2">Moderate (2)</SelectItem>
+                    <SelectItem value="2">Medium (2)</SelectItem>
                     <SelectItem value="3">Severe (3)</SelectItem>
                   </SelectContent>
                 </Select>
