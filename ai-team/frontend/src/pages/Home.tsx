@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import RampartScene from '@/components/3D/RampartScene';
 import RequestAccessModal from '@/components/ui/RequestAccessModal';
+import MapView from '@/pages/MapView';
 
 const sectionVariant = {
   hidden: { opacity: 0, y: 40 },
@@ -1035,6 +1036,57 @@ const Home = () => {
           </div>
         </section>
 
+        {/* NEW SECTION — LIVE MONITORING MAP */}
+        <section className="relative bg-[#0a0806] py-24 md:py-32 overflow-hidden border-t border-sand/5">
+          <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, rgba(180,120,60,0.05) 2px, transparent 2px)', backgroundSize: '40px 40px' }} />
+          
+          <motion.div
+            className="mx-auto w-full max-w-6xl px-6 relative z-10"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-100px' }}
+            variants={sectionVariant}
+          >
+            <div className="mb-10 max-w-2xl">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-900/60 bg-emerald-950/40 px-3 py-1 text-[10px] text-emerald-400 mb-4">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="uppercase tracking-[0.2em] font-mono">Live Feed</span>
+              </div>
+              <h2 className="font-heading text-3xl md:text-4xl text-sand-light mb-3">
+                Every monument. In real time.
+              </h2>
+              <p className="text-[13px] text-sand/55 leading-relaxed">
+                Our embedded tactical map gives an immediate overview of structural health across the medina. 
+                Markers pulse with dynamic risk levels, ensuring authorities have absolute situational awareness.
+              </p>
+            </div>
+
+            <div className="relative w-full h-[500px] md:h-[600px] rounded-xl border border-sand/10 overflow-hidden shadow-2xl shadow-black/80 bg-[#0f0d0b]">
+              <MapView embedded={true} />
+              
+              {/* Optional overlay UI to link to full map */}
+              <div className="absolute top-4 right-4 z-[1001]">
+                <button onClick={() => navigate('/monuments?view=map')} className="flex items-center gap-2 bg-[#1a1208]/80 backdrop-blur-md border border-sand/15 hover:border-copper-light/40 transition-colors rounded-lg px-4 py-2 shadow-lg group">
+                  <span className="text-copper-light text-xs font-mono tracking-wider group-hover:text-copper-light/80">View Full Tactical Map</span>
+                  <ChevronRight className="w-4 h-4 text-copper-light group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+
+              {/* Stat overlay */}
+              <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-[1001]">
+                <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-2 md:gap-4 bg-[#1a1208]/90 backdrop-blur-md border border-sand/10 rounded-xl p-2 md:p-3 shadow-xl">
+                  {[{label: "Sites monitored", val: "12+"}, {label: "Coverage of ramparts", val: "100%"}, {label: "Alert Updates", val: "Active"}].map(stat => (
+                    <div key={stat.label} className="bg-white/5 rounded-lg px-3 lg:px-4 py-2 flex flex-col items-center flex-1 md:flex-none">
+                      <span className="text-sand-light font-heading text-lg leading-none mb-1">{stat.val}</span>
+                      <span className="text-sand/40 text-[9px] font-mono uppercase tracking-wider">{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </section>
+
         {/* SECTION 5 — CLOSING CTA */}
         <section
           className="relative flex min-h-screen flex-col justify-center bg-[#080706] px-6 py-24"
@@ -1077,7 +1129,7 @@ const Home = () => {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/map')}
+                onClick={() => navigate('/monuments?view=map')}
                 className="inline-flex items-center gap-2 rounded-full border border-copper-light/40 bg-transparent px-7 py-2.5 text-sm font-medium text-copper-light hover:bg-copper-light/10 transition-colors"
               >
                 View Public Map
