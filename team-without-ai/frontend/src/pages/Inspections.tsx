@@ -15,6 +15,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
+/** Entre 1 et 50 — nombre de lignes « fissure » à générer dans le formulaire. */
+function parseNombreFissuresInput(raw: string): number {
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? Math.min(50, Math.max(1, parsed)) : 1;
+}
+
 function calculateVulnerability(monumentId: string, fissures: Fissure[]): number {
   const monument = monuments.find((m) => m.id === monumentId);
   if (!monument) return 0;
@@ -48,10 +54,21 @@ export default function Inspections() {
     observation: "",
   });
   const [fissures, setFissures] = useState<Fissure[]>([]);
+  /** Saisie pour ajouter plusieurs fissures d’un coup (expert choisit le nombre de lignes à remplir). */
+  const [nombreFissuresAajouter, setNombreFissuresAajouter] = useState("3");
   const vulnScore = form.monumentId ? calculateVulnerability(form.monumentId, fissures) : 0;
 
-  const addFissure = () => {
-    setFissures([...fissures, { id: `f-${Date.now()}`, description: "", detectionDate: form.date, gravityLevel: "low" }]);
+  const newFissureRow = (): Fissure => ({
+    id: `f-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+    description: "",
+    detectionDate: form.date,
+    gravityLevel: "low",
+  });
+
+  const nFissuresAajouter = parseNombreFissuresInput(nombreFissuresAajouter);
+
+  const addFissuresParNombre = () => {
+    setFissures((prev) => [...prev, ...Array.from({ length: nFissuresAajouter }, () => newFissureRow())]);
   };
   const updateFissure = (index: number, field: keyof Fissure, value: string) => {
     const updated = [...fissures];
@@ -72,6 +89,7 @@ export default function Inspections() {
     setInspectionsData([newInspection, ...inspectionsData]);
     setForm({ monumentId: "", date: new Date().toISOString().split("T")[0], type: "Périodique", observation: "" });
     setFissures([]);
+    setNombreFissuresAajouter("3");
     setMediaFiles([]);
     if (mediaPreview) {
       URL.revokeObjectURL(mediaPreview);
@@ -147,17 +165,40 @@ export default function Inspections() {
                   <Textarea value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} placeholder="Décrivez vos observations..." rows={3} />
                 </div>
 
-                {/* Crack Detection */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-base font-display">Détection de fissures</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addFissure}>
-                      <Plus className="h-3.5 w-3.5 mr-1" />Ajouter une fissure
-                    </Button>
+                {/* Détection de fissures — même logique (lot), présentation alignée sur le reste du formulaire */}
+                <div className="space-y-2">
+                  <Label>Détection de fissures</Label>
+                  <div className="rounded-lg border border-border bg-secondary/30 p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-4">
+                      <div className="space-y-2 min-w-0 flex-1 sm:max-w-[220px]">
+                        <Label htmlFor="nombre-fissures" className="text-sm font-normal text-muted-foreground">
+                          Nombre de fissures à ajouter
+                        </Label>
+                        <Input
+                          id="nombre-fissures"
+                          type="number"
+                          min={1}
+                          max={50}
+                          className="w-full"
+                          value={nombreFissuresAajouter}
+                          onChange={(e) => setNombreFissuresAajouter(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full shrink-0 sm:w-auto"
+                        onClick={addFissuresParNombre}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Ajouter {nFissuresAajouter} fissure{nFissuresAajouter > 1 ? "s" : ""}
+                      </Button>
+                    </div>
                   </div>
                   {fissures.length === 0 && (
-                    <p className="text-sm text-muted-foreground p-4 border border-dashed rounded-lg text-center">
-                      Aucune fissure détectée. Cliquez sur "Ajouter une fissure" pour en enregistrer.
+                    <p className="text-sm text-muted-foreground px-1 pt-1 text-center sm:text-left">
+                      Aucune fissure pour l’instant. Saisissez un nombre ci-dessus, puis utilisez le bouton pour créer les
+                      lignes à remplir.
                     </p>
                   )}
                   {fissures.map((fissure, idx) => (
