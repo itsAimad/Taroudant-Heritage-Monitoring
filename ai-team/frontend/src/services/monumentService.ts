@@ -17,6 +17,19 @@ export interface Monument {
   last_inspection:     string | null
 }
 
+export interface Inspection {
+  id: number;
+  monument_id: number;
+  inspector_id: number;
+  date: string;
+  notes: string;
+  humidity: number;
+  crack_count: number;
+  erosion_depth: number;
+  risk_score: number;
+  alert_triggered: boolean;
+}
+
 export type RiskLevel = NonNullable<Monument['risk_level']>
 
 export const getRiskLevel = (
@@ -45,4 +58,16 @@ export const monumentService = {
     if (!res.ok) return null
     return res.json()
   },
+
+  getInspections: async (id: number): Promise<Inspection[]> => {
+    try {
+      const res = await apiFetch(`/api/monuments/${id}/inspections`)
+      if (!res.ok) return []
+      const data = await res.json()
+      // Might be wrapped in results or direct array depending on FastApi response pagination
+      return data.results || data || []
+    } catch {
+      return []
+    }
+  }
 }
