@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Shield, Menu, X, LogOut, User } from 'lucide-react';
 import { useState } from 'react';
@@ -15,7 +15,7 @@ const Navbar = () => {
 
   const publicLinks = [
     { to: '/', label: 'Home' },
-    { to: '/heritage', label: 'Heritage Explorer' },
+    { to: '/monuments', label: 'Monuments' },
     { to: '/about', label: 'About' },
   ];
 
@@ -47,9 +47,19 @@ const Navbar = () => {
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
             {publicLinks.map(l => (
-              <Link key={l.to} to={l.to} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === l.to ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
+              <NavLink 
+                key={l.to} 
+                to={l.to} 
+                className={({ isActive }) => 
+                  `px-3 py-2 rounded-md text-sm transition-colors ${
+                    isActive 
+                      ? 'text-copper-light font-medium' 
+                      : (isHome ? 'text-sand/60 hover:text-sand font-medium' : 'text-muted-foreground hover:text-foreground font-medium')
+                  }`
+                }
+              >
                 {l.label}
-              </Link>
+              </NavLink>
             ))}
             {isAuthenticated && authLinks.map(l => (
               <Link key={l.to} to={l.to} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === l.to ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
@@ -93,7 +103,20 @@ const Navbar = () => {
         <div className={`md:hidden ${isHome ? 'bg-charcoal/95' : 'bg-background/95'} backdrop-blur-md border-t border-border`}>
           <div className="px-4 py-3 space-y-1">
             {publicLinks.map(l => (
-              <Link key={l.to} to={l.to} onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>{l.label}</Link>
+              <NavLink
+                key={l.to}
+                to={l.to}
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) =>
+                  `block px-3 py-2 rounded-md text-sm ${
+                    isActive
+                      ? 'text-copper-light font-medium bg-black/10'
+                      : (isHome ? 'text-sand' : 'text-foreground')
+                  }`
+                }
+              >
+                {l.label}
+              </NavLink>
             ))}
             {isAuthenticated && authLinks.map(l => (
               <Link key={l.to} to={l.to} onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>{l.label}</Link>
