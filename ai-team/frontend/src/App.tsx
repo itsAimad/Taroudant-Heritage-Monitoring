@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,7 +13,7 @@ import PageTransition from "@/components/ui/PageTransition";
 
 const Home = React.lazy(() => import("@/pages/Home"));
 const Login = React.lazy(() => import("@/pages/Login"));
-const HeritageExplorer = React.lazy(() => import("@/pages/HeritageExplorer"));
+const Monuments = React.lazy(() => import("@/pages/Monuments"));
 const About = React.lazy(() => import("@/pages/About"));
 const Dashboard = React.lazy(() => import("@/pages/Dashboard"));
 const MonumentDetail = React.lazy(() => import("@/pages/MonumentDetail"));
@@ -42,10 +42,19 @@ const AppRoutes = () => {
             }
           />
           <Route
-            path="/heritage"
+            path="/monuments"
             element={
               <PageTransition>
-                <HeritageExplorer />
+                <Monuments />
+              </PageTransition>
+            }
+          />
+          <Route path="/heritage" element={<Navigate to="/monuments" replace />} />
+          <Route
+            path="/monument/:id"
+            element={
+              <PageTransition>
+                <MonumentDetail />
               </PageTransition>
             }
           />
@@ -83,14 +92,7 @@ const AppRoutes = () => {
                 </PageTransition>
               }
             />
-            <Route
-              path="/monument/:id"
-              element={
-                <PageTransition>
-                  <MonumentDetail />
-                </PageTransition>
-              }
-            />
+
             <Route
               path="/risk-lab"
               element={
