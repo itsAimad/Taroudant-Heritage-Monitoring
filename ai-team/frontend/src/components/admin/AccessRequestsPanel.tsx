@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { accessRequestService, AccessRequest } from '@/services/accessRequestService';
 import { useToast } from '@/hooks/useToast';
-import InlineToast from '@/components/ui/InlineToast';
+import Toast from '@/components/ui/Toast';
 
 const relativeTime = (iso: string) => {
   const diff = Date.now() - new Date(iso).getTime();
@@ -96,7 +96,7 @@ const AccessRequestsPanel = () => {
 
   return (
     <div className="relative rounded-lg border border-border bg-card p-5">
-      <InlineToast toasts={toasts} dismissToast={dismissToast} />
+      <Toast toasts={toasts} dismissToast={dismissToast} />
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="font-heading text-lg text-foreground">
