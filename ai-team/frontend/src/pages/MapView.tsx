@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, TileLayer, ZoomControl } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, ZoomControl, useMap } from 'react-leaflet';
 import type { Map as LeafletMap } from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, Clock, Menu } from 'lucide-react';
@@ -44,9 +44,25 @@ const relativeTime = (iso: string): string => {
   return `${Math.floor(hrs / 24)}d ago`;
 };
 
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
 type RiskFilter = 'all' | 'low' | 'medium' | 'high' | 'critical';
 
-const MapView = () => {
+interface MapViewProps {
+  embedded?: boolean;
+}
+
+const MapView = ({ embedded = false }: MapViewProps = {}) => {
   const [monuments, setMonuments] = useState<Monument[]>([]);
   const [selectedMonument, setSelectedMonument] = useState<Monument | null>(
     null,
@@ -102,7 +118,7 @@ const MapView = () => {
   );
 
   return (
-    <div className={isMobile ? "flex flex-col h-[calc(100vh-64px)] bg-[#0f0d0b] relative overflow-hidden" : "flex h-[calc(100vh-64px)] bg-[#0f0d0b] overflow-hidden"}>
+    <div className={embedded ? "flex w-full h-full relative" : (isMobile ? "flex flex-col h-[calc(100vh-64px)] bg-[#0f0d0b] relative overflow-hidden" : "flex h-[calc(100vh-64px)] bg-[#0f0d0b] overflow-hidden")}>
 
       {loading && (
         <div className="absolute inset-0 z-[9999]
@@ -316,7 +332,7 @@ const MapView = () => {
       )}
 
       {/* Map Content */}
-      <div className={`relative flex-1 ${isMobile ? '' : 'mt-20'}`}>
+      <div className={`relative flex-1 ${isMobile || embedded ? '' : 'mt-20'}`}>
         <MapContainer
           ref={mapRef}
           center={[30.4748, -8.872]}
@@ -325,13 +341,14 @@ const MapView = () => {
           zoomControl={false}
           touchZoom={true}
           doubleClickZoom={true}
-          scrollWheelZoom={!isMobile}
+          scrollWheelZoom={!isMobile && !embedded}
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             attribution="&copy; OpenStreetMap contributors &copy; CARTO"
             maxZoom={19}
           />
+          <MapResizer />
           <ZoomControl position="bottomright" />
 
           {filteredMonuments
