@@ -62,6 +62,8 @@ interface MapViewProps {
   embedded?: boolean;
 }
 
+
+
 const MapView = ({ embedded = false }: MapViewProps = {}) => {
   const [monuments, setMonuments] = useState<Monument[]>([]);
   const [selectedMonument, setSelectedMonument] = useState<Monument | null>(
@@ -341,7 +343,7 @@ const MapView = ({ embedded = false }: MapViewProps = {}) => {
           zoomControl={false}
           touchZoom={true}
           doubleClickZoom={true}
-          scrollWheelZoom={!isMobile && !embedded}
+          scrollWheelZoom={true}
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
