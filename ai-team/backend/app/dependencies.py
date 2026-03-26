@@ -68,8 +68,8 @@ def get_current_user(
 def require_role(*roles: UserRole):
     """
     Factory — returns a dependency that enforces role.
-    Usage: Depends(require_role('admin'))
-           Depends(require_role('admin', 'authority'))
+    Usage: Depends(require_role(UserRole.ADMIN))
+           Depends(require_role(UserRole.ADMIN, UserRole.AUTHORITY))
     """
     def role_checker(
         current_user: dict = Depends(get_current_user)

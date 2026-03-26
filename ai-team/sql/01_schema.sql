@@ -100,36 +100,6 @@ CREATE INDEX IF NOT EXISTS idx_monuments_category_id ON monuments (category_id);
 
 
 -- ================================================
--- Table: monument_assets
--- Purpose: Store media assets (photos) linked to monuments for visual documentation
--- ================================================
-CREATE TABLE IF NOT EXISTS monument_assets (
-  photo_id    INT AUTO_INCREMENT PRIMARY KEY,
-  monument_id INT NOT NULL,
-  photo_url   VARCHAR(500) NOT NULL,
-  caption     VARCHAR(255),
-  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  uploaded_by INT,
-
-  -- Asset must always be tied to a monument; deletion is restricted to preserve asset integrity
-  CONSTRAINT fk_assets_monument
-    FOREIGN KEY (monument_id)
-    REFERENCES monuments (monument_id)
-    ON DELETE RESTRICT,
-
-  -- Uploader is optional; if the user is deleted we keep the asset but drop the reference
-  CONSTRAINT fk_assets_uploader
-    FOREIGN KEY (uploaded_by)
-    REFERENCES users (id_user)
-    ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Indexes to speed up lookups by monument and uploader
-CREATE INDEX IF NOT EXISTS idx_assets_monument_id ON monument_assets (monument_id);
-CREATE INDEX IF NOT EXISTS idx_assets_uploaded_by ON monument_assets (uploaded_by);
-
-
--- ================================================
 -- Table: inspections
 -- Purpose: Capture each field inspection performed on a monument
 -- ================================================
@@ -223,7 +193,7 @@ CREATE INDEX IF NOT EXISTS idx_scores_inspection_id ON vulnerability_scores (ins
 -- ================================================
 CREATE TABLE IF NOT EXISTS notifications (
   notification_id          INT AUTO_INCREMENT PRIMARY KEY,
-  monument_id              INT NOT NULL,
+  monument_id              INT, -- Allow NULL for system-wide notifications
   triggered_by_inspection  INT,
   recipient_id             INT NOT NULL,
   message                  TEXT NOT NULL,
@@ -231,7 +201,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   is_read                  BOOLEAN DEFAULT FALSE,
   sent_at                  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  -- Notification is always tied to a monument to give context to authorities
+  -- Notification is optionally tied to a monument to give context to authorities
   CONSTRAINT fk_notifications_monument
     FOREIGN KEY (monument_id)
     REFERENCES monuments (monument_id)

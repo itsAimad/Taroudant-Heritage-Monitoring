@@ -22,22 +22,14 @@ CREATE PROCEDURE CalculateVulnerabilityScore (
   IN p_inspection_id INT
 )
 BEGIN
-  -- Exit handler ensures transactional safety: any SQL error triggers a rollback
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-  END;
-
-  DECLARE v_monument_id INT;
-  DECLARE v_construction_year INT;
-  DECLARE v_age_years INT;
-  DECLARE v_age_score INT DEFAULT 0;
-  DECLARE v_crack_score INT DEFAULT 0;
-  DECLARE v_total_score INT DEFAULT 0;
+  -- All variable declarations MUST come before handlers in MySQL
+  DECLARE v_monument_id        INT;
+  DECLARE v_construction_year  INT;
+  DECLARE v_age_years          INT;
+  DECLARE v_age_score          INT DEFAULT 0;
+  DECLARE v_crack_score        INT DEFAULT 0;
+  DECLARE v_total_score        INT DEFAULT 0;
   DECLARE v_risk_level ENUM('low','medium','high','critical') DEFAULT 'low';
-
-  -- Start explicit transaction so all calculations and inserts are atomic
-  START TRANSACTION;
 
   -- Step 1 — Get monument and construction year from inspection
   SELECT
@@ -122,8 +114,6 @@ BEGIN
     SET status = 'critical'
     WHERE monument_id = v_monument_id;
   END IF;
-
-  COMMIT;
 END $$
 
 
@@ -139,35 +129,32 @@ CREATE PROCEDURE GenerateMonumentReport (
   IN p_generated_by  INT
 )
 BEGIN
+  -- All variable declarations MUST come before handlers in MySQL
+  DECLARE v_monument_name      VARCHAR(150);
+  DECLARE v_location           VARCHAR(255);
+  DECLARE v_construction_year  INT;
+  DECLARE v_inspection_date    DATE;
+  DECLARE v_overall_condition  ENUM('good','fair','poor','critical');
+  DECLARE v_notes              TEXT;
+  DECLARE v_age_score          INT;
+  DECLARE v_crack_score        INT;
+  DECLARE v_total_score        INT;
+  DECLARE v_risk_level         ENUM('low','medium','high','critical');
+  DECLARE v_total_cracks       INT DEFAULT 0;
+  DECLARE v_minor_cnt          INT DEFAULT 0;
+  DECLARE v_moderate_cnt       INT DEFAULT 0;
+  DECLARE v_major_cnt          INT DEFAULT 0;
+  DECLARE v_critical_cnt       INT DEFAULT 0;
+  DECLARE v_title              VARCHAR(255);
+  DECLARE v_recommendation     TEXT;
+  DECLARE v_report_content     TEXT;
+  DECLARE v_encrypted_content  LONGBLOB;
+
   -- Exit handler keeps report creation consistent in case of runtime SQL errors
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
     ROLLBACK;
   END;
-
-  DECLARE v_monument_name VARCHAR(150);
-  DECLARE v_location VARCHAR(255);
-  DECLARE v_construction_year INT;
-
-  DECLARE v_inspection_date DATE;
-  DECLARE v_overall_condition ENUM('good','fair','poor','critical');
-  DECLARE v_notes TEXT;
-
-  DECLARE v_age_score INT;
-  DECLARE v_crack_score INT;
-  DECLARE v_total_score INT;
-  DECLARE v_risk_level ENUM('low','medium','high','critical');
-
-  DECLARE v_total_cracks INT DEFAULT 0;
-  DECLARE v_minor_cnt INT DEFAULT 0;
-  DECLARE v_moderate_cnt INT DEFAULT 0;
-  DECLARE v_major_cnt INT DEFAULT 0;
-  DECLARE v_critical_cnt INT DEFAULT 0;
-
-  DECLARE v_title VARCHAR(255);
-  DECLARE v_recommendation TEXT;
-  DECLARE v_report_content TEXT;
-  DECLARE v_encrypted_content LONGBLOB;
 
   START TRANSACTION;
 

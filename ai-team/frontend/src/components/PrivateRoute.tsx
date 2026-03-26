@@ -2,7 +2,7 @@ import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
 interface PrivateRouteProps {
-  allowedRoles?: ('admin' | 'inspector' | 'viewer')[];
+  allowedRoles?: ('admin' | 'inspector' | 'authority' | 'viewer')[];
 }
 
 const PrivateRoute = ({ allowedRoles }: PrivateRouteProps) => {

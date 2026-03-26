@@ -1,15 +1,17 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Shield, Menu, X, LogOut, User } from 'lucide-react';
-import { useState } from 'react';
+import { Shield, Menu, X, LogOut, User, Bell } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { notificationService } from '@/services/notificationService';
 
 const Navbar = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const isHome = location.pathname === '/';
 
@@ -25,6 +27,20 @@ const Navbar = () => {
     { to: '/analytics', label: 'Analytics' },
     { to: '/architecture', label: 'Architecture' },
   ];
+
+  useEffect(() => {
+    if (isAuthenticated && (user?.role === 'admin' || user?.role === 'authority')) {
+      const fetchNotifs = () => {
+        notificationService.getAll().then(data => {
+          const unread = data.results?.filter((n: any) => !n.is_read).length || 0;
+          setUnreadCount(unread);
+        }).catch(err => console.error('Failed to fetch notifications:', err));
+      };
+      fetchNotifs();
+      const interval = setInterval(fetchNotifs, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, user?.role]);
 
   const handleLogout = () => {
     logout();
@@ -47,14 +63,13 @@ const Navbar = () => {
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
             {publicLinks.map(l => (
-              <NavLink 
-                key={l.to} 
-                to={l.to} 
-                className={({ isActive }) => 
-                  `px-3 py-2 rounded-md text-sm transition-colors ${
-                    isActive 
-                      ? 'text-copper-light font-medium' 
-                      : (isHome ? 'text-sand/60 hover:text-sand font-medium' : 'text-muted-foreground hover:text-foreground font-medium')
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={({ isActive }) =>
+                  `px-3 py-2 rounded-md text-sm transition-colors ${isActive
+                    ? 'text-copper-light font-medium'
+                    : (isHome ? 'text-sand/60 hover:text-sand font-medium' : 'text-muted-foreground hover:text-foreground font-medium')
                   }`
                 }
               >
@@ -67,7 +82,7 @@ const Navbar = () => {
               </Link>
             ))}
             {isAuthenticated && user?.role === 'admin' && (
-              <Link to="/users" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/users' ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
+              <Link to="/admin/users" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/admin/users' ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
                 Users
               </Link>
             )}
@@ -76,8 +91,16 @@ const Navbar = () => {
           <div className="hidden md:flex items-center gap-3">
             {isAuthenticated && user ? (
               <>
-                <Badge className={`${roleBadgeColor} text-xs`}>{user.role}</Badge>
-                <span className={`text-sm ${isHome ? 'text-sand/80' : 'text-muted-foreground'}`}>{user.full_name?.split(' ')[0] || 'User'}</span>
+                {(user.role === 'admin' || user.role === 'authority') && (
+                  <Link to="/dashboard" className="relative p-2 text-sand/70 hover:text-copper-light transition-colors">
+                    <Bell className="w-5 h-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-stone-950"></span>
+                    )}
+                  </Link>
+                )}
+                <Badge className={`${roleBadgeColor} text-xs uppercase`}>{user.role}</Badge>
+                <span className={`text-sm font-medium ${isHome ? 'text-sand/90' : 'text-foreground'}`}>{user.full_name?.split(' ')[0] || 'User'}</span>
                 <Button variant="ghost" size="sm" onClick={handleLogout} className={isHome ? 'text-sand/70 hover:text-sand' : ''}>
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -108,10 +131,9 @@ const Navbar = () => {
                 to={l.to}
                 onClick={() => setMobileOpen(false)}
                 className={({ isActive }) =>
-                  `block px-3 py-2 rounded-md text-sm ${
-                    isActive
-                      ? 'text-copper-light font-medium bg-black/10'
-                      : (isHome ? 'text-sand' : 'text-foreground')
+                  `block px-3 py-2 rounded-md text-sm ${isActive
+                    ? 'text-copper-light font-medium bg-black/10'
+                    : (isHome ? 'text-sand' : 'text-foreground')
                   }`
                 }
               >

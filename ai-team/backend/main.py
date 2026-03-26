@@ -2,7 +2,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routers import auth, users, access_requests, monuments
+from app.routers import (
+    auth, users, access_requests, monuments,
+    inspections, cracks, reports, notifications,
+    analytics, admin
+)
 
 app = FastAPI(
     title       = 'Taroudant Heritage Monitoring API',
@@ -34,6 +38,12 @@ app.include_router(auth.router,             prefix='/api')
 app.include_router(users.router,            prefix='/api')
 app.include_router(access_requests.router,  prefix='/api')
 app.include_router(monuments.router,        prefix='/api')
+app.include_router(inspections.router,      prefix='/api')
+app.include_router(cracks.router,           prefix='/api')
+app.include_router(reports.router,          prefix='/api')
+app.include_router(notifications.router,    prefix='/api')
+app.include_router(analytics.router,        prefix='/api')
+app.include_router(admin.router,            prefix='/api')
 
 @app.get('/api/health')
 async def health():

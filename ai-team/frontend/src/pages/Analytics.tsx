@@ -1,165 +1,222 @@
-import { MOCK_MONUMENTS, MOCK_ALERTS, RISK_HISTORY } from '@/data/mockData';
-import { motion } from 'framer-motion';
-import CountUp from 'react-countup';
-import { Shield, AlertTriangle, Clock, Activity } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState, useEffect } from 'react'
+import { analyticsService } from '../services/analyticsService'
+import { motion } from 'framer-motion'
+import CountUp from 'react-countup'
+import { Shield, AlertTriangle, Clock, Activity, FileText } from 'lucide-react'
+import {
+  BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend
+} from 'recharts'
+import PageTransition from '../components/ui/PageTransition'
 
-const CHART_COLORS = { safe: '#22C55E', warning: '#F59E0B', critical: '#EF4444', copper: '#A67C52', stone: '#8B7355' };
+const RISK_COLORS: Record<string, string> = {
+  critical: '#ef4444',
+  high:     '#f59e0b',
+  medium:   '#eab308',
+  low:      '#22c55e',
+}
+
+const SEVERITY_COLORS: Record<string, string> = {
+  critical: '#ef4444',
+  major:    '#f59e0b',
+  moderate: '#eab308',
+  minor:    '#22c55e',
+}
 
 const Analytics = () => {
-  const criticalCount = MOCK_MONUMENTS.filter(m => m.riskLevel === 'critical').length;
-  const warningCount = MOCK_MONUMENTS.filter(m => m.riskLevel === 'warning').length;
-  const safeCount = MOCK_MONUMENTS.filter(m => m.riskLevel === 'safe').length;
-  const pendingAlerts = MOCK_ALERTS.filter(a => a.status === 'pending').length;
-  const recentInspections = MOCK_MONUMENTS.reduce((sum, m) => sum + m.inspections.length, 0);
+  const [data, setData]       = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState(false)
 
-  const riskDistribution = [
-    { name: 'Safe', value: safeCount, color: CHART_COLORS.safe },
-    { name: 'Warning', value: warningCount, color: CHART_COLORS.warning },
-    { name: 'Critical', value: criticalCount, color: CHART_COLORS.critical },
-  ];
+  useEffect(() => {
+    analyticsService.get()
+      .then(d => setData(d))
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
+  }, [])
 
-  const monumentRisks = MOCK_MONUMENTS.map(m => ({
-    name: m.name.length > 15 ? m.name.slice(0, 15) + '…' : m.name,
-    risk: m.riskScore,
-    fill: m.riskLevel === 'safe' ? CHART_COLORS.safe : m.riskLevel === 'warning' ? CHART_COLORS.warning : CHART_COLORS.critical,
-  })).sort((a, b) => b.risk - a.risk);
+  if (loading) return (
+    <div className="min-h-screen bg-background pt-32 text-center text-muted-foreground">
+      Loading analytics...
+    </div>
+  )
+  if (error || !data) return (
+    <div className="min-h-screen bg-background pt-32 text-center text-destructive">
+      Failed to load analytics. Make sure you are logged in as admin or authority.
+    </div>
+  )
 
-  // Vulnerability factors across all monuments
-  const factorData = [
-    { name: 'Humidity', value: 30 },
-    { name: 'Cracks', value: 25 },
-    { name: 'Age', value: 25 },
-    { name: 'Erosion', value: 20 },
-  ];
-  const factorColors = ['#3B82F6', '#F59E0B', '#8B7355', '#EF4444'];
+  const summary = data.summary || {}
+
+  // Risk distribution → PieChart data
+  const riskDistData = (data.risk_distribution || []).map((d: any) => ({
+    name:  (d.risk_level || 'unknown').toUpperCase(),
+    value: d.count,
+    color: RISK_COLORS[d.risk_level] || '#78716c',
+  }))
+
+  // Crack severity breakdown → BarChart
+  const crackData = (data.crack_severity || []).map((d: any) => ({
+    name:  d.severity,
+    count: d.count,
+    fill:  SEVERITY_COLORS[d.severity] || '#78716c',
+  }))
+
+  // Inspections trend → BarChart
+  const trendData = (data.inspections_trend || []).map((d: any) => ({
+    month:    d.month,
+    total:    d.total,
+    critical: d.critical_count,
+  }))
+
+  // Most vulnerable → horizontal bar
+  const vulnData = (data.most_vulnerable || []).map((m: any) => ({
+    name:  m.name.length > 18 ? m.name.slice(0, 18) + '…' : m.name,
+    score: m.total_score,
+    fill:  RISK_COLORS[m.risk_level] || '#78716c',
+  }))
 
   return (
-    <div className="min-h-screen bg-background pt-20 px-4 sm:px-6 lg:px-8 pb-12">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="font-heading text-3xl text-foreground">Analytics Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Comprehensive heritage monitoring statistics</p>
-        </div>
-
-        {/* KPI Row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { icon: Shield, label: 'Total Monuments', value: MOCK_MONUMENTS.length, color: 'text-primary' },
-            { icon: AlertTriangle, label: 'High Risk', value: criticalCount, color: 'text-critical' },
-            { icon: Clock, label: 'Total Inspections', value: recentInspections, color: 'text-primary' },
-            { icon: Activity, label: 'Active Alerts', value: pendingAlerts, color: 'text-warning' },
-          ].map((s) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-lg p-5">
-              <div className="flex items-center gap-2 mb-2">
-                <s.icon className={`h-5 w-5 ${s.color}`} />
-                <span className="text-sm text-muted-foreground">{s.label}</span>
-              </div>
-              <div className="font-heading text-3xl text-foreground"><CountUp end={s.value} duration={1.5} /></div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Charts Grid */}
-        <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          {/* Risk Evolution */}
-          <div className="bg-card border border-border rounded-lg p-5">
-            <h2 className="font-heading text-lg text-foreground mb-4">Risk Evolution Over Time</h2>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={RISK_HISTORY}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
-                <Legend />
-                <Line type="monotone" dataKey="babElKasbah" name="Bab El Kasbah" stroke={CHART_COLORS.warning} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="borjSouth" name="Borj Sud" stroke={CHART_COLORS.critical} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="rampartWest" name="Western Rampart" stroke={CHART_COLORS.copper} strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="average" name="Average" stroke={CHART_COLORS.stone} strokeWidth={2} strokeDasharray="5 5" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+    <PageTransition>
+      <div className="min-h-screen bg-background pt-20 px-4 sm:px-6 lg:px-8 pb-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-8">
+            <h1 className="font-heading text-3xl text-foreground">Analytics Dashboard</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Live data from the Taroudant Heritage monitoring database.
+            </p>
           </div>
 
-          {/* Risk by Monument */}
-          <div className="bg-card border border-border rounded-lg p-5">
-            <h2 className="font-heading text-lg text-foreground mb-4">Risk Score by Monument</h2>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={monumentRisks} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis type="number" domain={[0, 100]} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                <YAxis dataKey="name" type="category" width={120} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
-                <Bar dataKey="risk" radius={[0, 4, 4, 0]}>
-                  {monumentRisks.map((entry, i) => (
-                    <Cell key={i} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+          {/* KPI Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            {[
+              { icon: Shield,        label: 'Monuments',   value: summary.total_monuments   || 0, color: 'text-primary' },
+              { icon: Clock,         label: 'Inspections', value: summary.total_inspections || 0, color: 'text-primary' },
+              { icon: AlertTriangle, label: 'Cracks',      value: summary.total_cracks      || 0, color: 'text-warning' },
+              { icon: Activity,      label: 'Alerts',      value: summary.unread_alerts     || 0, color: 'text-critical' },
+              { icon: FileText,      label: 'Reports',     value: summary.total_reports     || 0, color: 'text-primary' },
+            ].map((s) => (
+              <motion.div key={s.label}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-card border border-border rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <s.icon className={`h-4 w-4 ${s.color}`} />
+                  <span className="text-xs text-muted-foreground">{s.label}</span>
+                </div>
+                <div className="font-heading text-3xl text-foreground">
+                  <CountUp end={s.value} duration={1.5} />
+                </div>
+              </motion.div>
+            ))}
           </div>
 
-          {/* Risk Distribution Pie */}
-          <div className="bg-card border border-border rounded-lg p-5">
-            <h2 className="font-heading text-lg text-foreground mb-4">Monuments by Risk Level</h2>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={riskDistribution} cx="50%" cy="50%" outerRadius={100} innerRadius={50} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
-                  {riskDistribution.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+          {/* Charts Row 1 */}
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+
+            {/* Risk Distribution Pie */}
+            <div className="bg-card border border-border rounded-lg p-5">
+              <h2 className="font-heading text-base text-foreground mb-4">Risk Distribution</h2>
+              {riskDistData.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-10">No vulnerability scores computed yet.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <PieChart>
+                    <Pie
+                      data={riskDistData}
+                      cx="50%" cy="50%"
+                      innerRadius={60} outerRadius={90}
+                      paddingAngle={4}
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                      labelLine={false}
+                    >
+                      {riskDistData.map((entry: any, i: number) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Most Vulnerable Monuments */}
+            <div className="bg-card border border-border rounded-lg p-5">
+              <h2 className="font-heading text-base text-foreground mb-4">Most Vulnerable Monuments</h2>
+              {vulnData.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-10">No data yet.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={vulnData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                    <XAxis type="number" domain={[0, 100]}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <YAxis dataKey="name" type="category" width={130}
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                    <Bar dataKey="score" radius={[0, 4, 4, 0]}>
+                      {vulnData.map((entry: any, i: number) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </div>
 
-          {/* Vulnerability Factors */}
-          <div className="bg-card border border-border rounded-lg p-5">
-            <h2 className="font-heading text-lg text-foreground mb-4">Vulnerability Factor Weights</h2>
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={factorData} cx="50%" cy="50%" outerRadius={100} innerRadius={50} dataKey="value" label={({ name, value }) => `${name}: ${value}%`}>
-                  {factorData.map((_, i) => (
-                    <Cell key={i} fill={factorColors[i]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+          {/* Charts Row 2 */}
+          <div className="grid lg:grid-cols-2 gap-6">
 
-        {/* Alert History */}
-        <div className="bg-card border border-border rounded-lg p-5">
-          <h2 className="font-heading text-lg text-foreground mb-4">Alert History</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 text-muted-foreground font-medium">Date</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Monument</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Level</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Rule</th>
-                  <th className="text-left py-2 text-muted-foreground font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_ALERTS.map(a => (
-                  <tr key={a.id} className="border-b border-border/50">
-                    <td className="py-3 font-mono text-xs text-foreground">{new Date(a.timestamp).toLocaleDateString()}</td>
-                    <td className="py-3 text-foreground">{a.monumentName}</td>
-                    <td className="py-3"><span className={`px-2 py-0.5 rounded text-xs ${a.riskLevel === 'critical' ? 'bg-critical/10 text-critical' : 'bg-warning/10 text-warning'}`}>{a.riskLevel}</span></td>
-                    <td className="py-3 text-muted-foreground text-xs">{a.triggeredRule}</td>
-                    <td className="py-3"><span className={`px-2 py-0.5 rounded text-xs ${a.status === 'pending' ? 'bg-warning/10 text-warning' : a.status === 'acknowledged' ? 'bg-primary/10 text-primary' : 'bg-safe/10 text-safe'}`}>{a.status}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            {/* Inspections Trend */}
+            <div className="bg-card border border-border rounded-lg p-5">
+              <h2 className="font-heading text-base text-foreground mb-4">Inspections Trend (6M)</h2>
+              {trendData.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-10">No inspection data for the last 6 months.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={trendData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                    <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                    <Legend />
+                    <Bar dataKey="total"    name="Total"    fill="#a36e4f" radius={[4,4,0,0]} />
+                    <Bar dataKey="critical" name="Critical" fill="#ef4444" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Crack Severity Distribution */}
+            <div className="bg-card border border-border rounded-lg p-5">
+              <h2 className="font-heading text-base text-foreground mb-4">Cracks by Severity</h2>
+              {crackData.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-10">No cracks logged yet.</p>
+              ) : (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={crackData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
+                    <XAxis dataKey="name"  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }} />
+                    <Bar dataKey="count" radius={[4,4,0,0]}>
+                      {crackData.map((entry: any, i: number) => (
+                        <Cell key={i} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           </div>
+
         </div>
       </div>
-    </div>
-  );
-};
+    </PageTransition>
+  )
+}
 
-export default Analytics;
+export default Analytics

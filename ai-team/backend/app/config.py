@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from decouple import config
 from functools import lru_cache
 
 class Settings(BaseSettings):
