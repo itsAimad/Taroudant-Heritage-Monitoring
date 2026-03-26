@@ -12,7 +12,7 @@ USE taroudant_heritage_shield;
 -- SECTION 1 — Insert logical application roles
 -- These roles are used both for RBAC enforcement and alert routing
 -- ==========================================================
-INSERT INTO roles (role_name, description) VALUES
+INSERT IGNORE INTO roles (role_name, description) VALUES
   ('admin',     'Full system access — manages users, monuments, assignments'),
   ('inspector', 'Field expert — creates inspections, logs cracks, generates reports'),
   ('authority', 'Municipal authority — receives alerts, reads encrypted reports'),
@@ -52,7 +52,6 @@ GRANT ALL PRIVILEGES ON taroudant_heritage_shield.* TO 'app_admin'@'localhost';
 GRANT SELECT, INSERT, UPDATE ON taroudant_heritage_shield.inspections       TO 'app_inspector'@'localhost';
 GRANT SELECT, INSERT          ON taroudant_heritage_shield.cracks            TO 'app_inspector'@'localhost';
 GRANT SELECT, INSERT          ON taroudant_heritage_shield.reports           TO 'app_inspector'@'localhost';
-GRANT SELECT, INSERT          ON taroudant_heritage_shield.monument_assets   TO 'app_inspector'@'localhost';
 
 -- Read-only access to core reference data needed during inspections
 GRANT SELECT ON taroudant_heritage_shield.monuments             TO 'app_inspector'@'localhost';
@@ -86,7 +85,6 @@ GRANT INSERT           ON taroudant_heritage_shield.audit_logs    TO 'app_author
 -- Viewer has strictly read-only access to public-facing data
 GRANT SELECT ON taroudant_heritage_shield.monuments           TO 'app_viewer'@'localhost';
 GRANT SELECT ON taroudant_heritage_shield.monument_categories TO 'app_viewer'@'localhost';
-GRANT SELECT ON taroudant_heritage_shield.monument_assets     TO 'app_viewer'@'localhost';
 
 -- Column-level privilege to expose only non-sensitive vulnerability data
 GRANT SELECT (monument_id, risk_level, computed_at)
