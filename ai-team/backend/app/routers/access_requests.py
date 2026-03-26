@@ -39,6 +39,14 @@ async def submit_request(
          data.role, data.reason)
     )
 
+    # Notify all admins about the new access request
+    admins = execute_query(conn, "SELECT id_user FROM users WHERE role_id = (SELECT role_id FROM roles WHERE role_name = 'admin')")
+    for admin in admins:
+        execute_write(conn, """
+            INSERT INTO notifications (recipient_id, message, severity, monument_id)
+            VALUES (%s, %s, 'info', NULL)
+        """, (admin['id_user'], f"New system access request from {data.full_name} ({data.organization}) pending review."))
+
     return {
         'message':    'Request submitted. Admin will review within 48 hours.',
         'request_id': req_id,
