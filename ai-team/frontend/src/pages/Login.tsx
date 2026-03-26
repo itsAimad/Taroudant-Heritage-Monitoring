@@ -131,7 +131,9 @@ const Login = () => {
             <p className="text-xs text-muted-foreground mb-3">Demo credentials:</p>
             <div className="grid gap-2">
               {[
-                { role: 'Admin', user: 'admin@heritage-taroudant.ma', pass: 'admin123' },
+                { role: 'Admin',     user: 'admin@heritage-taroudant.ma',     pass: 'Heritage2026!' },
+                { role: 'Inspector', user: 'inspector@heritage-taroudant.ma', pass: 'Heritage2026!' },
+                { role: 'Authority', user: 'authority@heritage-taroudant.ma', pass: 'Heritage2026!' },
               ].map(c => (
                 <button
                   key={c.role}
@@ -140,7 +142,7 @@ const Login = () => {
                   className="text-left px-3 py-2 rounded border border-border hover:bg-muted transition-colors text-xs"
                 >
                   <span className="font-medium text-foreground">{c.role}:</span>{' '}
-                  <span className="font-mono text-muted-foreground">{c.user} / {c.pass}</span>
+                  <span className="font-mono text-muted-foreground">{c.user}</span>
                 </button>
               ))}
             </div>
