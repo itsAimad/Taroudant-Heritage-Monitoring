@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
 import {
   Sidebar,
@@ -46,6 +47,7 @@ const expertItems = [
 const authorityItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Monuments", url: "/monuments", icon: Landmark },
+  { title: "Séismes", url: "/seismes", icon: Activity },
   { title: "Inspections", url: "/inspections", icon: ClipboardCheck },
   { title: "Alertes", url: "/alerts", icon: AlertTriangle },
   { title: "Rapports", url: "/reports", icon: FileText },
@@ -55,6 +57,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const items = user?.role === "Expert" ? expertItems : user?.role === "Authority" ? authorityItems : adminItems;
@@ -99,7 +102,10 @@ export function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={logout}
+              onClick={() => {
+                logout();
+                navigate("/login", { replace: true });
+              }}
               className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <LogOut className="h-4 w-4" />
