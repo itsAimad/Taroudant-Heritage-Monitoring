@@ -305,7 +305,7 @@ CREATE TABLE IF NOT EXISTS access_requests (
   organization    VARCHAR(200)  NOT NULL,
   -- role stores the role_name string (inspector/authority)
   -- validated against roles table at application level
-  role            VARCHAR(50)   NOT NULL,
+  requested_role_id           INT   NOT NULL,
   reason          TEXT          NOT NULL,
   status          ENUM('pending','approved','rejected')
                     DEFAULT 'pending',
@@ -314,6 +314,11 @@ CREATE TABLE IF NOT EXISTS access_requests (
   -- FK to users.id_user — the admin who reviewed this request
   reviewed_by_id  INT           NULL,
   review_note     TEXT          DEFAULT '',
+
+  CONSTRAINT fk_access_requests_role
+    FOREIGN KEY (requested_role_id)
+      REFERENCES roles(role_id)
+      ON DELETE RESTRICT,
 
   CONSTRAINT fk_access_requests_reviewer
     FOREIGN KEY (reviewed_by_id)
