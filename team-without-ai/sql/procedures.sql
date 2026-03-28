@@ -14,6 +14,10 @@ BEGIN
     DECLARE d_creation DATE;
     DECLARE age_years INT DEFAULT 0;
     DECLARE crack_points FLOAT DEFAULT 0;
+    DECLARE crack_count INT DEFAULT 0;
+    DECLARE seisme_boost FLOAT DEFAULT 0;
+    DECLARE age_component FLOAT DEFAULT 0;
+    DECLARE crack_component FLOAT DEFAULT 0;
     DECLARE total_score FLOAT DEFAULT 0;
 
     SELECT i.id_monument, m.date_de_creation
@@ -44,8 +48,25 @@ BEGIN
     FROM FISSURE
     WHERE id_inspection = p_inspection;
 
-    /* Part âge (pondération faible) + points liés aux fissures */
-    SET total_score = (age_years * 0.2) + crack_points;
+    SELECT COUNT(*)
+    INTO crack_count
+    FROM FISSURE
+    WHERE id_inspection = p_inspection;
+
+    /*
+      Ajustement sismique simple:
+      - On regarde la magnitude max des 30 derniers jours
+      - boost max 20 points
+    */
+    SELECT LEAST(20, IFNULL(MAX(magnitude), 0) * 4)
+    INTO seisme_boost
+    FROM SEISME
+    WHERE date_seisme >= DATE_SUB(CURDATE(), INTERVAL 30 DAY);
+
+    /* Composants pondérés + plafonnement */
+    SET age_component = LEAST(25, age_years * 0.15);
+    SET crack_component = LEAST(65, crack_points + (crack_count * 2));
+    SET total_score = LEAST(100, age_component + crack_component + seisme_boost);
 
     /*
      Seuils d'état monument (alignés avec le frontend : Stable / À surveiller / Critique)

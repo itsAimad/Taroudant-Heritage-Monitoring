@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 interface User {
   id: string;
@@ -9,17 +9,11 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
-
-const mockUsers: Record<string, User> = {
-  "admin@heritage.ma": { id: "u4", name: "Fatima Zahra El Idrissi", email: "admin@heritage.ma", role: "Admin" },
-  "expert@heritage.ma": { id: "u1", name: "Dr. Amina Benali", email: "expert@heritage.ma", role: "Expert" },
-  "authority@heritage.ma": { id: "u3", name: "Mohammed Alaoui", email: "authority@heritage.ma", role: "Authority" },
-};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
@@ -27,19 +21,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return stored ? JSON.parse(stored) : null;
   });
 
-  const login = (email: string, _password: string) => {
-    const found = mockUsers[email];
-    if (found) {
-      setUser(found);
-      localStorage.setItem("ths_user", JSON.stringify(found));
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem("ths_token"));
+
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
+
+  useEffect(() => {
+    if (!token) return;
+
+    const run = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) {
+          localStorage.removeItem("ths_token");
+          localStorage.removeItem("ths_user");
+          setToken(null);
+          setUser(null);
+          return;
+        }
+        const data = await res.json();
+        setUser(data.user);
+        localStorage.setItem("ths_user", JSON.stringify(data.user));
+      } catch {
+        // If offline or backend not ready, keep current user from localStorage.
+      }
+    };
+
+    run();
+  }, [token, API_BASE]);
+
+  const login = async (email: string, password: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) return false;
+
+      const data = await res.json();
+      setUser(data.user);
+      setToken(data.token);
+      localStorage.setItem("ths_user", JSON.stringify(data.user));
+      localStorage.setItem("ths_token", data.token);
       return true;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
     setUser(null);
+    setToken(null);
     localStorage.removeItem("ths_user");
+    localStorage.removeItem("ths_token");
   };
 
   return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;

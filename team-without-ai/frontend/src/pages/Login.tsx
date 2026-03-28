@@ -14,10 +14,10 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const success = login(email, password);
+    const success = await login(email, password);
     if (success) {
       navigate("/dashboard");
     } else {
@@ -83,15 +83,15 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="mt-6 p-4 rounded-md bg-secondary">
-            <p className="text-xs text-muted-foreground mb-2 font-medium">Comptes de démonstration :</p>
-            <div className="space-y-1 text-xs text-muted-foreground">
-              <p><span className="font-medium">Admin:</span> admin@heritage.ma</p>
-              <p><span className="font-medium">Expert:</span> expert@heritage.ma</p>
-              <p><span className="font-medium">Autorité:</span> authority@heritage.ma</p>
-              <p className="text-muted-foreground/60 mt-1">Mot de passe: n'importe lequel</p>
-            </div>
-          </div>
+      <div className="mt-6 p-4 rounded-md bg-secondary">
+        <p className="text-xs text-muted-foreground mb-2 font-medium">Connexion réelle (JWT) :</p>
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <p>Les comptes sont dans la base MySQL (`UTILISATEUR`).</p>
+          <p className="text-muted-foreground/60 mt-1">
+            Pour tester rapidement : crée un compte via `POST /auth/register` (nom, email, password, role).
+          </p>
+        </div>
+      </div>
         </div>
       </div>
     </div>

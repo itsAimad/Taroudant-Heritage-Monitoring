@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { alertes as initialAlertes, Alerte } from "@/lib/mock-data";
+import { Alerte } from "@/lib/mock-data";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useAuth } from "@/lib/auth-context";
-import { AlertTriangle, Bell, BellOff, CheckCircle2, Clock, MapPin } from "lucide-react";
+import { AlertTriangle, Bell, BellOff, Clock, MapPin } from "lucide-react";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -24,23 +24,46 @@ const alertLevelIcon: Record<string, string> = {
 export default function Alerts() {
   const { user } = useAuth();
   const isAuthority = user?.role === "Authority";
-   const [alertes, setAlertes] = useState<Alerte[]>(initialAlertes);
+  const [alertes, setAlertes] = useState<Alerte[]>([]);
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
 
-  const handleToggleReceived = (id: string) => {
-    setAlertes((prev) =>
-      prev.map((a) =>
-        a.id === id
-          ? {
-              ...a,
-              received: !a.received,
-            }
-          : a,
-      ),
-    );
+  const authHeaders = () => {
+    const token = localStorage.getItem("ths_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/alerts`, { headers: { ...authHeaders() } });
+        if (!res.ok) return;
+        setAlertes(await res.json());
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleToggleReceived = async (id: string) => {
+    const target = alertes.find((a) => a.id === id);
+    if (!target) return;
+    if (!target.received) {
+      try {
+        await fetch(`${API_BASE}/alerts/${id.replace(/^a/, "")}/read`, {
+          method: "POST",
+          headers: { ...authHeaders() },
+        });
+      } catch {
+        // ignore
+      }
+    }
+    setAlertes((prev) => prev.map((a) => (a.id === id ? { ...a, received: !a.received } : a)));
   };
 
   if (isAuthority) {
-    const receivedAlerts = alertes.filter((a) => a.received);
+    const receivedAlerts = alertes;
 
     return (
       <DashboardLayout>
@@ -68,10 +91,16 @@ export default function Alerts() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge status={a.alertLevel} />
                         <StatusBadge status={a.status} />
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Reçue
-                        </span>
+                        {a.received ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">
+                            Reçue
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">
+                            <BellOff className="h-3 w-3" />
+                            Non lue
+                          </span>
+                        )}
                       </div>
                       <p className="text-sm font-medium text-foreground">{a.message}</p>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -85,12 +114,13 @@ export default function Alerts() {
                       </div>
                     </div>
                     <div className="shrink-0">
-                      <Button
+                        <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleToggleReceived(a.id)}
+                        disabled={a.received}
                       >
-                        Marquer comme non lue
+                          {a.received ? "Déjà lue" : "Marquer comme lue"}
                       </Button>
                     </div>
                   </div>

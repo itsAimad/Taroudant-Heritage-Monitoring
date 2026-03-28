@@ -33,7 +33,7 @@ CREATE TABLE MONUMENT (
     description TEXT COMMENT 'EN: description',
     image_principale VARCHAR(512) COMMENT 'EN: main image URL/path',
     INDEX idx_monument_etat (etat_structure)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB;                                                         
 
 /* ================= INSPECTION ================= */
 -- EN status: Planifiée | En cours | Terminée
@@ -43,6 +43,7 @@ CREATE TABLE INSPECTION (
     date_inspection DATE COMMENT 'EN: inspection date',
     type_inspection VARCHAR(50) COMMENT 'EN: inspection type (e.g. post-earthquake)',
     observation TEXT COMMENT 'EN: observations',
+    image_url VARCHAR(512) NULL COMMENT 'EN: optional inspection image URL',
     score_vulnerabilite FLOAT NOT NULL DEFAULT 0 COMMENT 'EN: vulnerability score',
     statut ENUM('planifiee', 'en_cours', 'terminee') NOT NULL DEFAULT 'planifiee'
         COMMENT 'EN: scheduled | in_progress | completed',
@@ -108,4 +109,33 @@ CREATE TABLE RAPPORT (
     FOREIGN KEY (id_inspection) REFERENCES INSPECTION(id_inspection),
     FOREIGN KEY (id_utilisateur) REFERENCES UTILISATEUR(id_utilisateur),
     INDEX idx_rapport_inspection (id_inspection)
+) ENGINE=InnoDB;
+
+/* ================= SEISME ================= */
+-- EN: seismic events recorded by admin, visible to expert + authority
+
+CREATE TABLE SEISME (
+    id_seisme INT AUTO_INCREMENT PRIMARY KEY,
+    date_seisme DATE NOT NULL COMMENT 'EN: quake date',
+    localisation VARCHAR(150) NOT NULL COMMENT 'EN: location',
+    magnitude DECIMAL(4,2) NOT NULL COMMENT 'EN: Richter magnitude',
+    profondeur_km DECIMAL(6,2) NOT NULL COMMENT 'EN: depth in kilometers',
+    intensite VARCHAR(50) NOT NULL COMMENT 'EN: intensity label',
+    id_utilisateur INT NOT NULL COMMENT 'EN: admin who created record',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_utilisateur) REFERENCES UTILISATEUR(id_utilisateur),
+    INDEX idx_seisme_date (date_seisme)
+) ENGINE=InnoDB;
+
+/* ================= NOTIFICATION SEISME LUE ================= */
+-- EN: stores per-user read state for seism notifications
+
+CREATE TABLE NOTIFICATION_SEISME_LUE (
+    id_notification INT AUTO_INCREMENT PRIMARY KEY,
+    id_seisme INT NOT NULL,
+    id_utilisateur INT NOT NULL,
+    date_lecture DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_seisme_user (id_seisme, id_utilisateur),
+    FOREIGN KEY (id_seisme) REFERENCES SEISME(id_seisme) ON DELETE CASCADE,
+    FOREIGN KEY (id_utilisateur) REFERENCES UTILISATEUR(id_utilisateur) ON DELETE CASCADE
 ) ENGINE=InnoDB;

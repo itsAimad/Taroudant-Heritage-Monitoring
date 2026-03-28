@@ -1,9 +1,9 @@
+import { useEffect, useState } from "react";
 import { Landmark, ClipboardCheck, AlertTriangle, Activity } from "lucide-react";
 import { StatCard } from "@/components/StatCard";
 import { VulnerabilityBadge } from "@/components/VulnerabilityBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { monuments, inspections, alertes, seismes } from "@/lib/mock-data";
 import {
   Table,
   TableBody,
@@ -14,9 +14,27 @@ import {
 } from "@/components/ui/table";
 
 export default function Dashboard() {
-  const recentInspections = [...inspections].sort(
-    (a, b) => new Date(b.inspectionDate).getTime() - new Date(a.inspectionDate).getTime()
-  ).slice(0, 5);
+  const [stats, setStats] = useState({ monuments: 0, inspections: 0, activeAlerts: 0, seismes: 0 });
+  const [recentInspections, setRecentInspections] = useState<any[]>([]);
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const token = localStorage.getItem("ths_token");
+        if (!token) return;
+        const res = await fetch(`${API_BASE}/dashboard/summary`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        setStats(data.stats || stats);
+        setRecentInspections(data.recentInspections || []);
+      } catch {
+        // keep defaults
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <DashboardLayout>
@@ -27,10 +45,10 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Monuments" value={monuments.length} icon={Landmark} variant="default" />
-          <StatCard title="Inspections" value={inspections.length} icon={ClipboardCheck} variant="success" />
-          <StatCard title="Alertes actives" value={alertes.filter(a => a.status === "Active").length} icon={AlertTriangle} variant="critical" />
-          <StatCard title="Séismes enregistrés" value={seismes.length} icon={Activity} variant="warning" />
+          <StatCard title="Monuments" value={stats.monuments} icon={Landmark} variant="default" />
+          <StatCard title="Inspections" value={stats.inspections} icon={ClipboardCheck} variant="success" />
+          <StatCard title="Alertes actives" value={stats.activeAlerts} icon={AlertTriangle} variant="critical" />
+          <StatCard title="Séismes enregistrés" value={stats.seismes} icon={Activity} variant="warning" />
         </div>
 
         <div className="bg-card border rounded-lg">
