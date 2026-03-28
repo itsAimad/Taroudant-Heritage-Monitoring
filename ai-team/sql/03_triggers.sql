@@ -116,6 +116,44 @@ BEGIN
   );
 END $$
 
+
+-- Trigger for after_access_request_reviewed
+
+DROP TRIGGER IF EXISTS after_access_request_reviewed $$
+CREATE TRIGGER after_access_request_reviewed
+AFTER UPDATE ON access_requests
+FOR EACH ROW
+BEGIN
+  IF NEW.status != OLD.status THEN
+    INSERT INTO audit_logs(
+      user_id,
+      action,
+      target_table,
+      target_id,
+      ip_address,
+      details,
+      performed_at
+    )
+    VALUES(
+      NEW.reviewed_by_id,
+      CASE NEW.status
+        WHEN 'approved'  THEN 'ACCESS_REQUEST_APPROVED'
+        WHEN 'rejected'  THEN 'ACCESS_REQUEST_REJECTED'
+        WHEN 'pending'   THEN 'ACCESS_REQUEST_PENDING'
+        ELSE 'ACCESS_REQUEST_UPDATED'
+      END,
+      'access_requests',
+      NEW.id,
+      NULL,
+      CONCAT('Request from:', NEW.email,
+      ' | Role requested: ', NEW.role,
+      ' | Note: ', NEW.note),
+      NOW()
+    );
+  END IF;
+END;
+$$
+
 DELIMITER ;
 
 -- ✅ Triggers created successfully
