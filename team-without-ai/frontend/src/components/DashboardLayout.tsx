@@ -1,9 +1,9 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/lib/auth-context";
 import { Navigate, useNavigate } from "react-router-dom";
-import { alertes, seismes } from "@/lib/mock-data";
+import { alertes as mockAlertes, seismes as mockSeismes } from "@/lib/mock-data";
 import { Bell, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,18 +13,80 @@ import {
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [readIds, setReadIds] = useState<string[]>([]);
-  const [readSeismeIds, setReadSeismeIds] = useState<string[]>([]);
+  const [alertes, setAlertes] = useState(mockAlertes);
+  const [seismes, setSeismes] = useState<(typeof mockSeismes[number] & { read?: boolean })[]>(mockSeismes);
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
 
   if (!user) return <Navigate to="/login" replace />;
 
-  const activeAlertes = alertes.filter((a) => a.status === "Active");
-  const unreadAlertCount = activeAlertes.filter((a) => !readIds.includes(a.id)).length;
-  const markAllAlertsRead = () => setReadIds(activeAlertes.map((a) => a.id));
+  useEffect(() => {
+    let timer: number | undefined;
+    const run = async () => {
+      try {
+        const token = localStorage.getItem("ths_token");
+        if (!token) return;
+
+        const shouldFetchAlerts = user.role === "Authority";
+        const shouldFetchSeismes = user.role === "Expert" || user.role === "Authority";
+
+        const promises: Array<Promise<any>> = [];
+        if (shouldFetchSeismes) {
+          promises.push(fetch(`${API_BASE}/seismes`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => (r.ok ? r.json() : null)));
+        } else {
+          promises.push(Promise.resolve(null));
+        }
+        if (shouldFetchAlerts) {
+          promises.push(fetch(`${API_BASE}/alerts`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => (r.ok ? r.json() : null)));
+        } else {
+          promises.push(Promise.resolve(null));
+        }
+
+        const [seisData, alertData] = await Promise.all(promises);
+        if (seisData) setSeismes(seisData);
+        if (alertData) setAlertes(alertData);
+      } catch {
+        // fallback to mock data if API is unavailable
+      }
+    };
+
+    run();
+    timer = window.setInterval(() => run(), 10000);
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [API_BASE, user.role]);
+
+  const activeAlertes = alertes.filter((a) => a.status !== "Résolue");
+  const unreadAlertCount = activeAlertes.filter((a) => !a.received).length;
+  const markAllAlertsRead = async () => {
+    try {
+      const token = localStorage.getItem("ths_token");
+      if (!token) return;
+      await fetch(`${API_BASE}/alerts/read-all`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAlertes((prev) => prev.map((a) => ({ ...a, received: true })));
+    } catch {
+      // ignore
+    }
+  };
 
   const recentSeismes = [...seismes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
-  const unreadSeismeCount = recentSeismes.filter((s) => !readSeismeIds.includes(s.id)).length;
-  const markAllSeismesRead = () => setReadSeismeIds(recentSeismes.map((s) => s.id));
+  const unreadSeismeCount = recentSeismes.filter((s) => !s.read).length;
+  const markAllSeismesRead = async () => {
+    try {
+      const token = localStorage.getItem("ths_token");
+      if (!token) return;
+      await fetch(`${API_BASE}/seismes/read-all`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSeismes((prev) => prev.map((s) => ({ ...s, read: true })));
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <SidebarProvider>
@@ -35,7 +97,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             <SidebarTrigger />
             <h1 className="font-display text-lg text-foreground">Taroudant Heritage Shield</h1>
             <div className="ml-auto flex items-center gap-2">
-              {user.role === "Expert" && (
+              {(user.role === "Expert" || user.role === "Authority") && (
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="icon" className="relative">
@@ -63,9 +125,23 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                         recentSeismes.map((s) => (
                           <button
                             key={s.id}
-                            onClick={() => { setReadSeismeIds((prev) => [...prev, s.id]); navigate("/seismes"); }}
+                            onClick={async () => {
+                              try {
+                                const token = localStorage.getItem("ths_token");
+                                if (token) {
+                                  await fetch(`${API_BASE}/seismes/${String(s.id).replace(/^s/, "")}/read`, {
+                                    method: "POST",
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                }
+                              } catch {
+                                // ignore
+                              }
+                              setSeismes((prev) => prev.map((x) => (x.id === s.id ? { ...x, read: true } : x)));
+                              navigate("/seismes");
+                            }}
                             className={`w-full text-left px-4 py-3 border-b last:border-0 hover:bg-muted/50 transition-colors ${
-                              !readSeismeIds.includes(s.id) ? "bg-warning/5" : ""
+                              !s.read ? "bg-warning/5" : ""
                             }`}
                           >
                             <p className={`text-xs font-semibold ${s.magnitude >= 5 ? "text-destructive" : s.magnitude >= 4 ? "text-warning" : "text-muted-foreground"}`}>
@@ -108,9 +184,23 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                         activeAlertes.map((a) => (
                           <button
                             key={a.id}
-                            onClick={() => { setReadIds((prev) => [...prev, a.id]); navigate("/alerts"); }}
+                            onClick={async () => {
+                              try {
+                                const token = localStorage.getItem("ths_token");
+                                if (token) {
+                                  await fetch(`${API_BASE}/alerts/${String(a.id).replace(/^a/, "")}/read`, {
+                                    method: "POST",
+                                    headers: { Authorization: `Bearer ${token}` },
+                                  });
+                                }
+                              } catch {
+                                // ignore
+                              }
+                              setAlertes((prev) => prev.map((x) => (x.id === a.id ? { ...x, received: true } : x)));
+                              navigate("/alerts");
+                            }}
                             className={`w-full text-left px-4 py-3 border-b last:border-0 hover:bg-muted/50 transition-colors ${
-                              !readIds.includes(a.id) ? "bg-primary/5" : ""
+                              !a.received ? "bg-primary/5" : ""
                             }`}
                           >
                             <p className="text-xs font-semibold text-destructive">{a.alertLevel}</p>
