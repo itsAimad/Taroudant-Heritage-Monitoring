@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { monuments, inspections, alertes, rapports } from "@/lib/mock-data";
+import type { Alerte, Inspection, Monument, Rapport } from "@/lib/mock-data";
 import { VulnerabilityBadge } from "@/components/VulnerabilityBadge";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,71 @@ export default function MonumentDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const monument = monuments.find((m) => m.id === id);
+  const [monument, setMonument] = useState<Monument | null>(null);
+  const [inspectionsData, setInspectionsData] = useState<Inspection[]>([]);
+  const [alertsData, setAlertsData] = useState<Alerte[]>([]);
+  const [reportsData, setReportsData] = useState<Rapport[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
+  const token = localStorage.getItem("ths_token");
+  const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const numericId = (id || "").replace(/^m/, "");
+        if (!numericId) throw new Error("Missing id");
+        const res = await fetch(`${API_BASE}/monuments/${numericId}`, { headers: authHeaders });
+        if (!res.ok) {
+          setMonument(null);
+          return;
+        }
+        const data = await res.json();
+        setMonument(data as Monument);
+      } catch {
+        setMonument(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!monument) return;
+        if (!token) return;
+
+        const [insRes, alRes, repRes] = await Promise.all([
+          fetch(`${API_BASE}/inspections`, { headers: authHeaders }),
+          fetch(`${API_BASE}/alerts`, { headers: authHeaders }),
+          fetch(`${API_BASE}/reports`, { headers: authHeaders }),
+        ]);
+
+        if (insRes.ok) setInspectionsData(await insRes.json());
+        if (alRes.ok) setAlertsData(await alRes.json());
+        if (repRes.ok) setReportsData(await repRes.json());
+      } catch {
+        // ignore
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monument?.id]);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-20 space-y-3">
+          <p className="text-sm text-muted-foreground">Chargement du monument...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!monument) {
     return (
@@ -30,9 +95,21 @@ export default function MonumentDetail() {
     );
   }
 
-  const monumentInspections = inspections.filter((i) => i.monumentId === monument.id);
-  const monumentAlertes = alertes.filter((a) => monumentInspections.some((i) => i.id === a.inspectionId));
-  const monumentRapports = rapports.filter((r) => monumentInspections.some((i) => i.id === r.inspectionId));
+  const isAdmin = user?.role === "Admin";
+  const isExpert = user?.role === "Expert";
+  const isAuthority = user?.role === "Authority";
+
+  const ownedInspections = isExpert
+    ? inspectionsData.filter((i: any) => String(i.expertId || "") === String(user?.id || ""))
+    : inspectionsData;
+
+  const monumentInspections = ownedInspections.filter((i) => i.monumentId === monument.id);
+  const monumentInspectionIds = new Set(monumentInspections.map((i) => i.id));
+
+  const monumentAlertes = alertsData.filter((a) => monumentInspectionIds.has(a.inspectionId));
+  const monumentRapports = reportsData.filter((r) => monumentInspectionIds.has(r.inspectionId));
+
+  const visibleReports = isExpert ? monumentRapports.filter((r) => r.idUtilisateur === user?.id) : monumentRapports;
 
   const canInspect = user?.role !== "Authority";
 
@@ -47,7 +124,11 @@ export default function MonumentDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <div className="relative rounded-lg overflow-hidden">
-              <img src={monument.image} alt={monument.name} className="w-full h-64 object-cover" />
+              {monument.image ? (
+                <img src={monument.image} alt={monument.name} className="w-full h-64 object-cover" />
+              ) : (
+                <div className="w-full h-64 bg-secondary" />
+              )}
               <div className="absolute top-3 right-3">
                 <VulnerabilityBadge score={monument.vulnerabilityScore} size="md" />
               </div>
@@ -84,23 +165,35 @@ export default function MonumentDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Inspecteur</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Fissures</TableHead>
+                    {isAdmin ? (
+                      <>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Inspecteur</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead>Fissures</TableHead>
+                      </>
+                    ) : (
+                      <TableHead>Fissures</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {monumentInspections.map((ins) => (
                     <TableRow key={ins.id}>
-                      <TableCell>{ins.inspectionDate}</TableCell>
-                      <TableCell>{ins.inspectionType}</TableCell>
-                      <TableCell>{ins.inspector}</TableCell>
-                      <TableCell><VulnerabilityBadge score={ins.vulnerabilityScore} size="sm" /></TableCell>
-                      <TableCell><StatusBadge status={ins.status} /></TableCell>
-                      <TableCell>{ins.fissures.length}</TableCell>
+                      {isAdmin ? (
+                        <>
+                          <TableCell>{ins.inspectionDate}</TableCell>
+                          <TableCell>{ins.inspectionType}</TableCell>
+                          <TableCell>{ins.inspector}</TableCell>
+                          <TableCell><VulnerabilityBadge score={ins.vulnerabilityScore} size="sm" /></TableCell>
+                          <TableCell><StatusBadge status={ins.status} /></TableCell>
+                          <TableCell>{ins.fissures.length}</TableCell>
+                        </>
+                      ) : (
+                        <TableCell>{ins.fissures.length}</TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -116,7 +209,7 @@ export default function MonumentDetail() {
           <h3 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />Alertes ({monumentAlertes.length})
           </h3>
-          {monumentAlertes.length > 0 ? (
+          {isAdmin && monumentAlertes.length > 0 ? (
             <div className="bg-card border rounded-lg">
               <Table>
                 <TableHeader>
@@ -130,26 +223,28 @@ export default function MonumentDetail() {
                 <TableBody>
                   {monumentAlertes.map((al) => (
                     <TableRow key={al.id}>
-                      <TableCell>{al.date}</TableCell>
-                      <TableCell className="max-w-sm truncate">{al.message}</TableCell>
-                      <TableCell><StatusBadge status={al.alertLevel} /></TableCell>
-                      <TableCell><StatusBadge status={al.status} /></TableCell>
+                      <TableCell>{isAdmin ? al.date : "—"}</TableCell>
+                      <TableCell className="max-w-sm truncate">{isAdmin ? al.message : "—"}</TableCell>
+                      <TableCell>{isAdmin ? <StatusBadge status={al.alertLevel} /> : "—"}</TableCell>
+                      <TableCell>{isAdmin ? <StatusBadge status={al.status} /> : "—"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Aucune alerte associée.</p>
+            <p className="text-sm text-muted-foreground">
+              {monumentAlertes.length > 0 ? "Détails masqués (réservé à Admin)." : "Aucune alerte associée."}
+            </p>
           )}
         </div>
 
         {/* Rapports */}
         <div className="space-y-3">
           <h3 className="font-display text-lg font-semibold text-foreground flex items-center gap-2">
-            <FileText className="h-5 w-5" />Rapports ({monumentRapports.length})
+            <FileText className="h-5 w-5" />Rapports ({visibleReports.length})
           </h3>
-          {monumentRapports.length > 0 ? (
+          {isAdmin && visibleReports.length > 0 ? (
             <div className="bg-card border rounded-lg">
               <Table>
                 <TableHeader>
@@ -161,7 +256,7 @@ export default function MonumentDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {monumentRapports.map((rp) => (
+                  {visibleReports.map((rp) => (
                     <TableRow key={rp.id}>
                       <TableCell>{rp.dateRapport}</TableCell>
                       <TableCell className="max-w-sm truncate">{rp.diagnosticStructurel}</TableCell>
@@ -173,7 +268,9 @@ export default function MonumentDetail() {
               </Table>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Aucun rapport associé.</p>
+            <p className="text-sm text-muted-foreground">
+              {visibleReports.length > 0 ? "Détails masqués (réservé à Admin)." : "Aucun rapport associé."}
+            </p>
           )}
         </div>
       </div>
