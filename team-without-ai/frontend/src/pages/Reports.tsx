@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { rapports as initialRapports, Rapport } from "@/lib/mock-data";
+import { Rapport } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,9 +40,9 @@ export default function Reports() {
   const { toast } = useToast();
   const isAuthority = user?.role === "Authority";
   const isExpert = user?.role === "Expert";
-  const [rapportsData, setRapportsData] = useState<Rapport[]>(initialRapports);
+  const [rapportsData, setRapportsData] = useState<Rapport[]>([]);
+  const [inspectionsOptions, setInspectionsOptions] = useState<Array<{ id: string; monumentName: string; inspectionDate: string }>>([]);
   const [selectedRapport, setSelectedRapport] = useState<Rapport | null>(null);
-  const [commentaire, setCommentaire] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingRapport, setEditingRapport] = useState<Rapport | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -63,31 +63,66 @@ export default function Reports() {
     inspectionId: "",
   });
 
-  const handleValidate = (id: string) => {
-    setRapportsData((prev) =>
-      prev.map((r) => r.id === id ? { ...r, statut: "validé" as const, commentaireAutorite: commentaire } : r)
-    );
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
+  const authHeaders = () => {
+    const token = localStorage.getItem("ths_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const [reportsRes, inspectionsRes] = await Promise.all([
+          fetch(`${API_BASE}/reports`, { headers: { ...authHeaders() } }),
+          fetch(`${API_BASE}/inspections`, { headers: { ...authHeaders() } }),
+        ]);
+        if (reportsRes.ok) setRapportsData(await reportsRes.json());
+        if (inspectionsRes.ok) {
+          const data = await inspectionsRes.json();
+          setInspectionsOptions((data || []).map((i: any) => ({
+            id: i.id,
+            monumentName: i.monumentName,
+            inspectionDate: i.inspectionDate,
+          })));
+        }
+      } catch {
+        // ignore
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleValidate = async (id: string) => {
+    await fetch(`${API_BASE}/reports/${id.replace(/^r/, "")}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ statut: "validé", commentaireAutorite: "" }),
+    });
+    setRapportsData((prev) => prev.map((r) => (r.id === id ? { ...r, statut: "validé", commentaireAutorite: "" } : r)));
     setSelectedRapport(null);
-    setCommentaire("");
     toast({ title: "Rapport validé", description: "Le rapport a été approuvé avec succès." });
   };
 
-  const handleReject = (id: string) => {
-    if (!commentaire.trim()) {
-      toast({ title: "Commentaire requis", description: "Veuillez ajouter un commentaire pour justifier le rejet.", variant: "destructive" });
-      return;
-    }
-    setRapportsData((prev) =>
-      prev.map((r) => r.id === id ? { ...r, statut: "rejeté" as const, commentaireAutorite: commentaire } : r)
-    );
+  const handleReject = async (id: string) => {
+    await fetch(`${API_BASE}/reports/${id.replace(/^r/, "")}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({ statut: "rejeté", commentaireAutorite: "" }),
+    });
+    setRapportsData((prev) => prev.map((r) => (r.id === id ? { ...r, statut: "rejeté", commentaireAutorite: "" } : r)));
     setSelectedRapport(null);
-    setCommentaire("");
     toast({ title: "Rapport rejeté", description: "Le rapport a été rejeté." });
   };
 
   const openReview = (r: Rapport) => {
     setSelectedRapport(r);
-    setCommentaire(r.commentaireAutorite);
   };
 
   const openNewRapport = () => {
@@ -127,55 +162,60 @@ export default function Reports() {
     toast({ title: "Rapport supprimé", description: "Le rapport a été supprimé." });
   };
 
-  const handleSaveRapport = () => {
+  const handleSaveRapport = async () => {
     if (!user || !isExpert) return;
-    if (
-      !formRapport.monumentName.trim() ||
-      !formRapport.diagnosticStructurel.trim() ||
-      !formRapport.recommandations.trim()
-    ) {
+    if (!formRapport.inspectionId.trim() || !formRapport.diagnosticStructurel.trim() || !formRapport.recommandations.trim()) {
       toast({
         title: "Champs requis",
-        description: "Veuillez renseigner au minimum le monument, le diagnostic et les recommandations.",
+        description: "Veuillez renseigner inspection, diagnostic et recommandations.",
         variant: "destructive",
       });
       return;
     }
 
     if (editingRapport) {
-      setRapportsData((prev) =>
-        prev.map((r) =>
-          r.id === editingRapport.id
-            ? {
-                ...r,
-                monumentName: formRapport.monumentName,
-                diagnosticStructurel: formRapport.diagnosticStructurel,
-                analyseFissures: formRapport.analyseFissures,
-                recommandations: formRapport.recommandations,
-                niveauPriorite: formRapport.niveauPriorite,
-                inspectionId: formRapport.inspectionId || r.inspectionId,
-              }
-            : r,
-        ),
-      );
+      const reportId = editingRapport.id.replace(/^r/, "");
+      const res = await fetch(`${API_BASE}/reports/${reportId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          diagnosticStructurel: formRapport.diagnosticStructurel,
+          analyseFissures: formRapport.analyseFissures,
+          recommandations: formRapport.recommandations,
+          niveauPriorite: formRapport.niveauPriorite,
+          inspectionId: formRapport.inspectionId || editingRapport.inspectionId,
+        }),
+      });
+      if (!res.ok) {
+        toast({ title: "Erreur", description: "Modification du rapport impossible.", variant: "destructive" });
+        return;
+      }
+      const updated = await res.json();
+      setRapportsData((prev) => prev.map((r) => (r.id === editingRapport.id ? updated : r)));
       toast({ title: "Rapport modifié", description: "Le rapport a été mis à jour." });
     } else {
-      const now = new Date();
-      const dateRapport = now.toISOString().split("T")[0];
-      const nouveau: Rapport = {
-        id: `r${Date.now()}`,
-        dateRapport,
-        diagnosticStructurel: formRapport.diagnosticStructurel,
-        analyseFissures: formRapport.analyseFissures,
-        recommandations: formRapport.recommandations,
-        niveauPriorite: formRapport.niveauPriorite,
-        statut: "en_attente",
-        commentaireAutorite: "",
-        inspectionId: formRapport.inspectionId || "i1",
-        idUtilisateur: user.id,
-        nomExpert: user.name,
-        monumentName: formRapport.monumentName,
-      };
+      const res = await fetch(`${API_BASE}/reports`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+        },
+        body: JSON.stringify({
+          inspectionId: formRapport.inspectionId,
+          diagnosticStructurel: formRapport.diagnosticStructurel,
+          analyseFissures: formRapport.analyseFissures,
+          recommandations: formRapport.recommandations,
+          niveauPriorite: formRapport.niveauPriorite,
+        }),
+      });
+      if (!res.ok) {
+        toast({ title: "Erreur", description: "Création du rapport impossible.", variant: "destructive" });
+        return;
+      }
+      const nouveau = await res.json();
       setRapportsData((prev) => [nouveau, ...prev]);
       toast({ title: "Rapport créé", description: "Votre rapport a été ajouté et est en attente de validation." });
     }
@@ -323,15 +363,7 @@ export default function Reports() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Commentaire / Décision de l'autorité</Label>
-                <Textarea
-                  value={commentaire}
-                  onChange={(e) => setCommentaire(e.target.value)}
-                  placeholder="Ajoutez votre commentaire ou décision..."
-                  rows={3}
-                />
-              </div>
+              {/* Pas de commentaire : l'autorité valide / rejette directement */}
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setSelectedRapport(null)}>Annuler</Button>
@@ -365,14 +397,28 @@ export default function Reports() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <Label>Monument</Label>
-                <Input
-                  value={formRapport.monumentName}
-                  onChange={(e) =>
-                    setFormRapport((prev) => ({ ...prev, monumentName: e.target.value }))
+                <Label>Inspection</Label>
+                <Select
+                  value={formRapport.inspectionId}
+                  onValueChange={(v) =>
+                    setFormRapport((prev) => ({
+                      ...prev,
+                      inspectionId: v,
+                      monumentName: inspectionsOptions.find((o) => o.id === v)?.monumentName || prev.monumentName,
+                    }))
                   }
-                  placeholder="Nom du monument"
-                />
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choisir une inspection" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {inspectionsOptions.map((opt) => (
+                      <SelectItem key={opt.id} value={opt.id}>
+                        {opt.monumentName} - {opt.inspectionDate} ({opt.id})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Niveau de priorité</Label>
@@ -444,17 +490,8 @@ export default function Reports() {
             </div>
 
             <div className="space-y-1">
-              <Label>ID Inspection (optionnel)</Label>
-              <Input
-                value={formRapport.inspectionId}
-                onChange={(e) =>
-                  setFormRapport((prev) => ({
-                    ...prev,
-                    inspectionId: e.target.value,
-                  }))
-                }
-                placeholder="Par ex. i1, i2..."
-              />
+              <Label>Monument (auto)</Label>
+              <Input value={formRapport.monumentName} readOnly />
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
