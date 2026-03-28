@@ -28,6 +28,8 @@ FOR EACH ROW
 BEGIN
     DECLARE v_etat VARCHAR(20);
     DECLARE v_nom_monument VARCHAR(150);
+    DECLARE v_niveau VARCHAR(20);
+    DECLARE v_msg TEXT;
 
     IF NOT (NEW.score_vulnerabilite <=> OLD.score_vulnerabilite) THEN
         SELECT m.etat_structure, m.nom
@@ -36,7 +38,32 @@ BEGIN
         WHERE m.id_monument = NEW.id_monument
         LIMIT 1;
 
-        IF v_etat = 'critique' AND NEW.score_vulnerabilite >= 65 THEN
+        IF NEW.score_vulnerabilite >= 65 THEN
+            SET v_niveau = 'critique';
+            SET v_msg = CONCAT(
+                'Risque structurel critique : ',
+                IFNULL(v_nom_monument, CONCAT('monument #', NEW.id_monument)),
+                ' (inspection #', NEW.id_inspection, ').'
+            );
+        ELSEIF NEW.score_vulnerabilite >= 50 OR v_etat = 'a_surveiller' THEN
+            SET v_niveau = 'moyen';
+            SET v_msg = CONCAT(
+                'Risque élevé / urgent à surveiller : ',
+                IFNULL(v_nom_monument, CONCAT('monument #', NEW.id_monument)),
+                ' (inspection #', NEW.id_inspection, ').'
+            );
+        ELSE
+            SET v_niveau = NULL;
+        END IF;
+
+        IF v_niveau IS NOT NULL THEN
+            -- On veut UNE SEULE alerte par inspection (système), visible à toutes les autorités.
+            -- Comme le score peut être recalculé plusieurs fois pendant la création (via fissures),
+            -- on remplace l'alerte active existante (nouvelle/en_cours) par une seule ligne.
+            DELETE FROM ALERTE
+            WHERE id_inspection = NEW.id_inspection
+              AND statut IN ('nouvelle', 'en_cours');
+
             INSERT INTO ALERTE (
                 date_alerte,
                 message,
@@ -46,30 +73,15 @@ BEGIN
                 alerte_recue,
                 id_inspection,
                 id_utilisateur
-            )
-            SELECT
+            ) VALUES (
                 NOW(),
-                CONCAT(
-                    'Risque structurel critique : ',
-                    IFNULL(v_nom_monument, CONCAT('monument #', NEW.id_monument)),
-                    ' (inspection #', NEW.id_inspection, '). ',
-                    'EN: Critical structural risk for monument after inspection update.'
-                ),
-                'critique',
+                v_msg,
+                v_niveau,
                 'nouvelle',
                 'danger_structurel',
                 FALSE,
                 NEW.id_inspection,
-                u.id_utilisateur
-            FROM UTILISATEUR u
-            WHERE u.role = 'autorite'
-            AND NOT EXISTS (
-                SELECT 1
-                FROM ALERTE a
-                WHERE a.id_inspection = NEW.id_inspection
-                  AND a.id_utilisateur = u.id_utilisateur
-                  AND a.niveau = 'critique'
-                  AND a.statut IN ('nouvelle', 'en_cours')
+                NULL
             );
         END IF;
     END IF;
