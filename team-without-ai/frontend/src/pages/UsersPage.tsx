@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { utilisateurs as initialUsers, Utilisateur } from "@/lib/mock-data";
+import { Utilisateur } from "@/lib/mock-data";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,8 +26,9 @@ export default function UsersPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === "Admin";
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:5000";
 
-  const [users, setUsers] = useState<Utilisateur[]>(initialUsers);
+  const [users, setUsers] = useState<Utilisateur[]>([]);
   const [editUser, setEditUser] = useState<Utilisateur | null>(null);
   const [deleteUser, setDeleteUser] = useState<Utilisateur | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -37,12 +38,33 @@ export default function UsersPage() {
   const [formEmail, setFormEmail] = useState("");
   const [formRole, setFormRole] = useState<Utilisateur["role"]>("Expert");
   const [formStatus, setFormStatus] = useState<Utilisateur["status"]>("Actif");
+  const [formPassword, setFormPassword] = useState("");
+
+  const authHeaders = () => {
+    const token = localStorage.getItem("ths_token");
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/users`, { headers: { ...authHeaders() } });
+        if (!res.ok) return;
+        setUsers(await res.json());
+      } catch {
+        // ignore
+      }
+    };
+    if (isAdmin) run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin]);
 
   const resetForm = () => {
     setFormName("");
     setFormEmail("");
     setFormRole("Expert");
     setFormStatus("Actif");
+    setFormPassword("");
   };
 
   const openEdit = (u: Utilisateur) => {
@@ -53,33 +75,55 @@ export default function UsersPage() {
     setEditUser(u);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editUser) return;
-    setUsers(prev =>
-      prev.map(u => u.id === editUser.id ? { ...u, name: formName, email: formEmail, role: formRole, status: formStatus } : u)
-    );
+    const res = await fetch(`${API_BASE}/users/${editUser.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ name: formName, email: formEmail, role: formRole }),
+    });
+    if (!res.ok) {
+      toast({ title: "Erreur", description: "Modification utilisateur impossible.", variant: "destructive" });
+      return;
+    }
+    setUsers((prev) => prev.map((u) => (u.id === editUser.id ? { ...u, name: formName, email: formEmail, role: formRole } : u)));
     setEditUser(null);
     resetForm();
     toast({ title: "Utilisateur modifié", description: `${formName} a été mis à jour.` });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteUser) return;
-    setUsers(prev => prev.filter(u => u.id !== deleteUser.id));
+    const res = await fetch(`${API_BASE}/users/${deleteUser.id}`, {
+      method: "DELETE",
+      headers: { ...authHeaders() },
+    });
+    if (!res.ok) {
+      toast({ title: "Erreur", description: "Suppression impossible.", variant: "destructive" });
+      return;
+    }
+    setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
     toast({ title: "Utilisateur supprimé", description: `${deleteUser.name} a été supprimé.`, variant: "destructive" });
     setDeleteUser(null);
   };
 
-  const handleAdd = () => {
-    const newUser: Utilisateur = {
-      id: `u${Date.now()}`,
-      name: formName,
-      email: formEmail,
-      role: formRole,
-      status: formStatus,
-      lastLogin: "—",
-    };
-    setUsers(prev => [...prev, newUser]);
+  const handleAdd = async () => {
+    const res = await fetch(`${API_BASE}/users`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        name: formName,
+        email: formEmail,
+        role: formRole,
+        password: formPassword,
+      }),
+    });
+    if (!res.ok) {
+      toast({ title: "Erreur", description: "Création utilisateur impossible.", variant: "destructive" });
+      return;
+    }
+    const newUser = await res.json();
+    setUsers((prev) => [newUser, ...prev]);
     setShowAdd(false);
     resetForm();
     toast({ title: "Utilisateur ajouté", description: `${formName} a été créé avec le rôle ${formRole}.` });
@@ -106,6 +150,12 @@ export default function UsersPage() {
           </SelectContent>
         </Select>
       </div>
+      {showAdd && (
+        <div className="space-y-2">
+          <Label>Mot de passe</Label>
+          <Input type="password" value={formPassword} onChange={e => setFormPassword(e.target.value)} placeholder="Mot de passe initial" />
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Statut</Label>
         <Select value={formStatus} onValueChange={v => setFormStatus(v as Utilisateur["status"])}>
@@ -181,7 +231,7 @@ export default function UsersPage() {
             <DialogTitle>Ajouter un utilisateur</DialogTitle>
           </DialogHeader>
           {userForm}
-          <Button onClick={handleAdd} disabled={!formName || !formEmail} className="w-full mt-2">
+          <Button onClick={handleAdd} disabled={!formName || !formEmail || !formPassword} className="w-full mt-2">
             Créer l'utilisateur
           </Button>
         </DialogContent>
