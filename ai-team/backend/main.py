@@ -1,3 +1,4 @@
+from routers import reports
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,6 +45,8 @@ app.include_router(reports.router,          prefix='/api')
 app.include_router(notifications.router,    prefix='/api')
 app.include_router(analytics.router,        prefix='/api')
 app.include_router(admin.router,            prefix='/api')
+app.include_router(reports.router,          prefix='/api')
+ 
 
 @app.get('/api/health')
 async def health():
