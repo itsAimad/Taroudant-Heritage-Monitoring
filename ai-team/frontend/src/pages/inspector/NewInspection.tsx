@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { inspectionService } from '../../services/inspectionService'
 import { apiFetch } from '../../services/authService'
 import { useAuth } from '../../context/AuthContext'
@@ -137,11 +137,12 @@ function ScoreCard({ score }: { score: any }) {
 export default function NewInspection() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
   const [step, setStep] = useState(1)
 
   // Step 1 state
   const [monuments, setMonuments]   = useState<Monument[]>([])
-  const [monumentId, setMonumentId] = useState('')
+  const [monumentId, setMonumentId] = useState(searchParams.get('monument_id') || '')
   const [monumentName, setMonumentName] = useState('')
   const [inspDate, setInspDate]     = useState(new Date().toISOString().split('T')[0])
   const [condition, setCondition]   = useState('fair')
@@ -170,9 +171,17 @@ export default function NewInspection() {
   useEffect(() => {
     apiFetch('/api/monuments/')
       .then(r => r.json())
-      .then(d => setMonuments(d.results || []))
+      .then(d => {
+        const results = d.results || []
+        setMonuments(results)
+        // If monumentId was set from searchParams, update the name
+        if (monumentId) {
+          const m = results.find((mon: any) => String(mon.id) === monumentId)
+          if (m) setMonumentName(`${m.name} — ${m.location}`)
+        }
+      })
       .catch(console.error)
-  }, [])
+  }, [monumentId])
 
   useEffect(() => {
     if (inspectionId && monumentName) {
@@ -249,11 +258,16 @@ export default function NewInspection() {
     if (!inspectionId) return
     setLoading3(true)
     try {
-      const res = await inspectionService.submit(inspectionId)
+      // Use the verified 'complete' endpoint which handles final scoring and notifications
+      const res = await inspectionService.complete(inspectionId)
       setNotified(res.notified || 0)
       setStep(4)
+      
+      // Optional: Add a small delay then redirect if preferred, 
+      // but current UI has a Step 4 for Report Generation. 
+      // I'll keep Step 4 for now as it's part of the existing flow.
     } catch (err: any) {
-      alert(err.message || 'Failed to submit inspection')
+      alert(err.message || 'Failed to complete inspection')
     } finally {
       setLoading3(false)
     }
@@ -269,7 +283,12 @@ export default function NewInspection() {
         inspection_id: inspectionId,
         title: reportTitle,
       })
-      setReportResult(res.report)
+      // Backend now returns { message: '...', report: { ... } }
+      if (res.report) {
+        setReportResult(res.report)
+      } else {
+        alert('Report generated but metadata was missing. Please check your dashboard.')
+      }
     } catch (err: any) {
       alert(err.message || 'Failed to generate report')
     } finally {
@@ -485,7 +504,7 @@ export default function NewInspection() {
                               <span className={`text-[10px] px-2 py-0.5 rounded border font-medium ${severityConfig[c.severity]?.color || 'text-sand/40 border-sand/15'}`}>
                                 {c.severity}
                               </span>
-                              {c.photo_id ? (
+                              {c.photo ? (
                                 <span className="text-[10px] text-emerald-400">📷</span>
                               ) : (
                                 <span className="text-[10px] text-sand/25">—</span>
