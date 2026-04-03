@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import date
 from pydantic import BaseModel
-from ..database import get_db, execute_query, execute_write
+from ..database import get_db, execute_query, execute_write, call_procedure
 from ..dependencies import get_current_user, require_role
 from ..models.user import UserRole
 
@@ -135,9 +135,19 @@ async def get_inspection(
         inspection['inspector_id'] != current_user['id']):
         raise HTTPException(403, 'Access denied.')
 
-    cracks = execute_query(conn,
-        'SELECT * FROM cracks WHERE inspection_id = %s ORDER BY detected_at DESC',
-        (inspection_id,))
+    cracks = execute_query(conn, """
+        SELECT
+          crack_id, inspection_id, location_on_monument,
+          severity, length_cm, detected_at
+        FROM cracks
+        WHERE inspection_id = %s
+        ORDER BY detected_at DESC
+    """, (inspection_id,))
+
+    # Add photo_url for each crack (served via dedicated blob endpoint)
+    for c in cracks:
+        c['photo_url'] = f"/api/cracks/{c['crack_id']}/image"
+
     inspection['cracks'] = cracks
     return inspection
 
@@ -195,50 +205,190 @@ async def complete_inspection(
     if insp['status'] == 'completed':
         return {'message': 'Already completed.'}
 
-    # Get latest score so we can include risk in the notification
-    score = execute_query(conn, """
-        SELECT vs.total_score, vs.risk_level
-        FROM vulnerability_scores vs
-        WHERE vs.inspection_id = %s
-        ORDER BY vs.computed_at DESC LIMIT 1
-    """, (inspection_id,))
+    # 1. Explicitly call scoring procedure one final time
+    try:
+        call_procedure(conn, 'CalculateVulnerabilityScore', (inspection_id,))
+    except Exception as e:
+        # If it fails, we still want to complete if cracks exist, but scoring is critical
+        print(f"Scoring procedure failed: {e}")
 
+    # 2. Set status to completed
     execute_write(conn,
         "UPDATE inspections SET status = 'completed' WHERE inspection_id = %s",
         (inspection_id,))
 
-    # Notify authorities that a new inspection was completed
-    authorities = execute_query(conn, """
-        SELECT u.id_user FROM users u
-        JOIN roles r ON u.role_id = r.role_id
-        WHERE r.role_name = 'authority' AND u.is_active = TRUE
-    """)
+    # 3. Get latest score to check risk level
+    score_rows = execute_query(conn, """
+        SELECT total_score, risk_level
+        FROM vulnerability_scores
+        WHERE inspection_id = %s
+        ORDER BY computed_at DESC LIMIT 1
+    """, (inspection_id,))
+    
+    score = score_rows[0] if score_rows else {'total_score': 0, 'risk_level': 'low'}
+    risk = score['risk_level']
 
-    mon_name = execute_query(conn,
-        'SELECT name FROM monuments WHERE monument_id = %s',
-        (insp['monument_id'],))
-    monument_name = mon_name[0]['name'] if mon_name else 'Unknown'
+    # 4. Handle notifications
+    # Note: Trigger 'after_score_insert' already handles HIGH and CRITICAL.
+    # We only handle LOW and MEDIUM here to ensure ALL authorities are notified for every inspection.
+    notified_count = 0
+    if risk in ('low', 'medium'):
+        authorities = execute_query(conn, """
+            SELECT u.id_user FROM users u
+            JOIN roles r ON u.role_id = r.role_id
+            WHERE r.role_name = 'authority' AND u.is_active = TRUE
+        """)
+        
+        mon_name = execute_query(conn,
+            'SELECT name FROM monuments WHERE monument_id = %s',
+            (insp['monument_id'],))
+        monument_name = mon_name[0]['name'] if mon_name else 'Unknown'
 
-    risk  = score[0]['risk_level'] if score else 'unknown'
-    total = score[0]['total_score'] if score else 0
-    severity = ('critical' if risk == 'critical' else
-                'high'     if risk == 'high'     else
-                'warning'  if risk == 'medium'   else 'info')
-    msg = (
-        f"Inspection completed for {monument_name}. "
-        f"Vulnerability score: {total}/100 ({risk.upper()} risk). "
-        f"Inspector: {current_user['full_name']}. Please review."
-    )
-    for auth in authorities:
-        execute_write(conn, """
-            INSERT INTO notifications
-              (monument_id, triggered_by_inspection,
-               recipient_id, message, severity)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (insp['monument_id'], inspection_id,
-               auth['id_user'], msg, severity))
+        msg = (
+            f"Inspection completed for {monument_name}. "
+            f"Vulnerability score: {score['total_score']}/100 ({risk.upper()} risk). "
+            f"Inspector: {current_user['full_name']}."
+        )
+        
+        severity = 'info' if risk == 'low' else 'warning'
+        
+        for auth in authorities:
+            execute_write(conn, """
+                INSERT INTO notifications
+                  (monument_id, triggered_by_inspection, recipient_id, message, severity)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (insp['monument_id'], inspection_id, auth['id_user'], msg, severity))
+            notified_count += 1
 
     return {
-        'message':  'Inspection marked as completed. Authorities notified.',
-        'notified': len(authorities)
+        'message':  'Inspection marked as completed.',
+        'notified': notified_count,
+        'risk_level': risk,
+        'total_score': score['total_score']
     }
+
+
+@router.patch('/{inspection_id}/acknowledge')
+async def acknowledge_inspection(
+    inspection_id: int,
+    conn           = Depends(get_db),
+    current_user   = Depends(require_role(UserRole.AUTHORITY, UserRole.ADMIN))
+):
+    """Authority acknowledges they have seen the critical alert/inspection."""
+    rows = execute_query(conn,
+        'SELECT * FROM inspections WHERE inspection_id = %s LIMIT 1',
+        (inspection_id,))
+    if not rows:
+        raise HTTPException(404, 'Inspection not found.')
+    
+    execute_write(conn,
+        "UPDATE inspections SET status = 'acknowledged' WHERE inspection_id = %s",
+        (inspection_id,))
+    
+    # Mark related notifications as read for this authority
+    execute_write(conn,
+        "UPDATE notifications SET is_read = TRUE WHERE triggered_by_inspection = %s AND recipient_id = %s",
+        (inspection_id, current_user['id']))
+
+    return {'message': 'Inspection acknowledged.'}
+
+
+@router.get('/{inspection_id}/detail')
+async def get_inspection_detail(
+    inspection_id: int,
+    conn           = Depends(get_db),
+    current_user   = Depends(get_current_user)
+):
+    """Full inspection detail: cracks with photo counts + latest report."""
+    rows = execute_query(conn, """
+        SELECT
+          i.*,
+          m.name         AS monument_name,
+          m.location     AS monument_location,
+          m.latitude,
+          m.longitude,
+          m.construction_year,
+          u.full_name    AS inspector_name,
+          vs.total_score AS vulnerability_score,
+          vs.risk_level,
+          vs.age_score,
+          vs.crack_score,
+          vs.computed_at AS score_computed_at
+        FROM inspections i
+        JOIN monuments m
+          ON i.monument_id = m.monument_id
+        JOIN users u
+          ON i.inspector_id = u.id_user
+        LEFT JOIN vulnerability_scores vs
+          ON vs.score_id = (
+            SELECT score_id FROM vulnerability_scores
+            WHERE inspection_id = i.inspection_id
+            ORDER BY computed_at DESC LIMIT 1
+          )
+        WHERE i.inspection_id = %s
+        LIMIT 1
+    """, (inspection_id,))
+
+    if not rows:
+        raise HTTPException(404, 'Inspection not found.')
+
+    insp = rows[0]
+
+    # Role check
+    if (current_user['role'] == 'inspector'
+            and insp['inspector_id'] != current_user['id']):
+        raise HTTPException(403, 'Access denied.')
+
+    # Fetch cracks — photo stored directly as photo_blob on the crack row
+    cracks = execute_query(conn, """
+        SELECT
+          crack_id,
+          inspection_id,
+          location_on_monument,
+          severity,
+          length_cm,
+          detected_at,
+          CASE WHEN photo_blob IS NOT NULL THEN 1 ELSE 0 END AS photo_count
+        FROM cracks
+        WHERE inspection_id = %s
+        ORDER BY detected_at ASC
+    """, (inspection_id,))
+
+    # Fetch latest report for this inspection
+    report_rows = execute_query(conn, """
+        SELECT
+          report_id, title, risk_level,
+          total_score, status, created_at
+        FROM reports
+        WHERE inspection_id = %s
+        ORDER BY created_at DESC
+        LIMIT 1
+    """, (inspection_id,))
+
+    insp['cracks'] = cracks
+    insp['report'] = report_rows[0] if report_rows else None
+    return insp
+
+
+@router.patch('/{inspection_id}/submit')
+async def submit_inspection(
+    inspection_id: int,
+    conn           = Depends(get_db),
+    current_user   = Depends(require_role(UserRole.INSPECTOR, UserRole.ADMIN))
+):
+    """Inspector submits the inspection for authority review."""
+    rows = execute_query(conn,
+        'SELECT * FROM inspections WHERE inspection_id = %s LIMIT 1',
+        (inspection_id,))
+    if not rows:
+        raise HTTPException(404, 'Inspection not found.')
+    insp = rows[0]
+    if (current_user['role'] == 'inspector' and
+            insp['inspector_id'] != current_user['id']):
+        raise HTTPException(403, 'Access denied.')
+
+    execute_write(conn,
+        "UPDATE inspections SET status = 'submitted' WHERE inspection_id = %s",
+        (inspection_id,))
+    return {'message': 'Inspection submitted for review.'}
+
