@@ -14,6 +14,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import RampartScene from '@/components/3D/RampartScene';
 import RequestAccessModal from '@/components/ui/RequestAccessModal';
+import { monumentService, Monument } from '@/services/monumentService';
 import MapView from '@/pages/MapView';
 
 const sectionVariant = {
@@ -33,80 +34,22 @@ const indexVariant = {
   },
 };
 
-const monuments = [
-  {
-    name: 'Bab Zourgane',
-    type: 'GATE',
-    riskLabel: 'MEDIUM',
-    riskLevel: 'MEDIUM',
-    badgeTone: 'amber',
-    score: 42,
-    imgLabel: '/assets/bab_zourgane.png',
-    description: 'Main eastern entrance, 16th century Saadian construction.',
-    lastInspection: '3 Feb 2025',
-  },
-  {
-    name: 'Bab El Khemis',
-    type: 'GATE',
-    riskLabel: 'LOW',
-    riskLevel: 'LOW',
-    badgeTone: 'emerald',
-    score: 28,
-    imgLabel: '/assets/bab_elkhemiss.png',
-    description: 'Northern market gate, partially restored in 2003.',
-    lastInspection: '28 Jan 2025',
-  },
-  {
-    name: 'Bab Bizamaren',
-    type: 'GATE',
-    riskLabel: 'MEDIUM',
-    riskLevel: 'MEDIUM',
-    badgeTone: 'orange',
-    score: 47,
-    imgLabel: '/assets/bab_bizamaren.png',
-    description: '750m continuous earthen wall, Almoravid origin.',
-    lastInspection: '6 Feb 2025',
-  },
-  {
-    name: 'Bab Aghbalou',
-    type: 'GATE',
-    riskLabel: 'LOW',
-    riskLevel: 'LOW',
-    badgeTone: 'emerald',
-    score: 35,
-    imgLabel: 'bab-aghbalou-southern-gate.jpg',
-    description: 'Southern gate with intact Alaouite-era wooden doors.',
-    lastInspection: '9 Feb 2025',
-  },
-  {
-    name: 'Northeast Tower Cluster',
-    type: 'TOWER',
-    riskLabel: 'CRITICAL',
-    riskLevel: 'CRITICAL',
-    badgeTone: 'red-strong',
-    score: 84,
-    imgLabel: 'northeast-tower-cluster-cracks.jpg',
-    description: 'Group of 7 defensive towers, structural cracks reported 2023.',
-    lastInspection: '1 Feb 2025',
-  },
-  {
-    name: 'Souk El Had Wall',
-    type: 'WALL SECTION',
-    riskLabel: 'MEDIUM',
-    riskLevel: 'MEDIUM',
-    badgeTone: 'amber',
-    score: 55,
-    imgLabel: 'souk-el-had-inner-wall.jpg',
-    description: 'Inner medina boundary wall, active tourist zone.',
-    lastInspection: '4 Feb 2025',
-  },
-];
-
 const Home = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [monuments, setMonuments] = useState<Monument[]>([]);
+
+
+
+  useEffect(() => {
+    const fetchMonuments = async () => {
+      const data: any = await monumentService.getAll();
+      setMonuments(data.results);
+    }
+    fetchMonuments();
+  }, []);
 
   useEffect(() => {
     const check = () => setIsMobile(typeof window !== 'undefined' && window.innerWidth < 640);
@@ -129,12 +72,7 @@ const Home = () => {
     }
   };
 
-  const getBarColor = (score: number) => {
-    if (score >= 80) return 'bg-red-500';
-    if (score >= 60) return 'bg-amber-400';
-    if (score >= 40) return 'bg-amber-300';
-    return 'bg-emerald-400';
-  };
+
 
   return (
     <div className="relative min-h-screen bg-charcoal text-sand overflow-x-hidden">
@@ -342,15 +280,12 @@ const Home = () => {
               <div className="grid gap-4 md:gap-5">
                 {/* Top wide */}
                 <div className="group overflow-hidden rounded-sm border border-sand/5 bg-stone-800/60">
-                  <div className="relative aspect-[16/7]">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-stone-900/40 via-transparent to-stone-700/40" />
-                    <div className="flex h-full w-full items-center justify-center text-center">
-                      <span className="text-[11px] text-sand/30">
 
-                      </span>
-                    </div>
-                  </div>
-                  <div className="px-4 py-2 text-[11px] italic text-sand/30">
+                  <div className="px-2 py-2 text-[11px] italic text-sand/30">
+                    <span className='text-sand/30'>
+                      <img src="/assets/kesbah_gate.png" alt="Bab El Kesbah" className=" fit-cover object-cover object-center  rounded-sm " />
+                    </span>
+                    <br />
                     Northern curtain wall, afternoon light over the Souss plain
                   </div>
                 </div>
@@ -486,26 +421,27 @@ const Home = () => {
             </div>
 
             <div className="-mx-2 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 pl-2 pr-4 md:-mx-4 md:pl-4 md:pr-6 monuments-scroll">
+              {/* calling fetchAllMonuments function */}
               {monuments.map((m, idx) => (
                 <motion.article
                   key={m.name}
-                  className="snap-center shrink-0 w-72 rounded-lg border border-sand/8 bg-stone-900/80 overflow-hidden"
+                  className="snap-center shrink-0 w-80 rounded-lg border border-sand/8 bg-stone-900/80 overflow-hidden"
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: '-80px' }}
                   transition={{ duration: 0.7, delay: idx * 0.1 }}
                 >
-                  <div className="relative h-44 bg-stone-800/70">
+                  <div className="relative h-48 bg-stone-800/70">
                     <div className="absolute h-[211px] inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
                     {/* Risk badge */}
                     <div className="absolute left-3 top-3">
                       <div
                         className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.18em] uppercase ${getBadgeStyles(
-                          m.badgeTone,
+                          m.risk_level,
                         )}`}
                       >
-                        {m.riskLabel} RISK
+                        {m.risk_level} RISK
                       </div>
                     </div>
 
@@ -518,9 +454,14 @@ const Home = () => {
 
                     {/* Placeholder text */}
                     <div className="flex h-full w-full items-center justify-center">
-                      <span className="text-xs text-sand/20">
-                        <img className="w-full h-full object-cover" src={m.imgLabel} alt={m.name} />
-                      </span>
+
+                      {monumentService.getMonumentPhotoUrl(m.id) ? (
+
+                        < img className="w-full h-full object-cover" src={monumentService.getMonumentPhotoUrl(m.id)} alt={m.name} />
+                      ) : (
+                        <img className="w-full h-full object-cover" src="/placeholder.jpg" alt={m.name} />
+                      )}
+
                     </div>
                   </div>
 
@@ -528,15 +469,15 @@ const Home = () => {
                     <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-copper-light/60">
                       {m.type}
                     </div>
-                    <p className="mb-3 text-xs leading-relaxed text-sand/50">{m.description}</p>
+                    <p className="mt-4 text-xs leading-relaxed text-sand/60 line-clamp-3">{m.description}</p>
 
-                    <div className="mt-3">
+                    <div className="mt-6">
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-[10px] font-mono tracking-wider text-sand/40 uppercase">
                           Vulnerability
                         </span>
                         <span className="text-[11px] font-mono text-sand/60">
-                          {m.score}/100
+                          {m.vulnerability_score}/100
                         </span>
                       </div>
                       <div
@@ -546,7 +487,7 @@ const Home = () => {
                         <motion.div
                           className="absolute left-0 top-0 h-full rounded-full"
                           initial={{ width: 0 }}
-                          whileInView={{ width: `${m.score}%` }}
+                          whileInView={{ width: `${m.vulnerability_score}%` }}
                           viewport={{ once: true }}
                           transition={{
                             duration: 1,
@@ -555,19 +496,19 @@ const Home = () => {
                           }}
                           style={{
                             background:
-                              m.score >= 76
+                              m.vulnerability_score >= 76
                                 ? 'linear-gradient(90deg, #7f1d1d, #dc2626)'
-                                : m.score >= 51
+                                : m.vulnerability_score >= 51
                                   ? 'linear-gradient(90deg, #78350f, #d97706)'
-                                  : m.score >= 26
+                                  : m.vulnerability_score >= 26
                                     ? 'linear-gradient(90deg, #713f12, #ca8a04)'
                                     : 'linear-gradient(90deg, #14532d, #16a34a)',
                             boxShadow:
-                              m.score >= 76
+                              m.vulnerability_score >= 76
                                 ? '0 0 8px rgba(220,38,38,0.4)'
-                                : m.score >= 51
+                                : m.vulnerability_score >= 51
                                   ? '0 0 8px rgba(217,119,6,0.4)'
-                                  : m.score >= 26
+                                  : m.vulnerability_score >= 26
                                     ? '0 0 8px rgba(202,138,4,0.3)'
                                     : '0 0 8px rgba(22,163,74,0.3)',
                           }}
@@ -575,9 +516,19 @@ const Home = () => {
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center gap-2 text-[11px] text-sand/30">
+                    <div className="mt-5 flex items-center gap-2 text-[11px] text-sand/30">
                       <Calendar className="h-3.5 w-3.5" />
-                      <span>Last inspection: {m.lastInspection}</span>
+                      <span>Last inspection: {m.last_inspection}</span>
+                    </div>
+
+                    <div className="mt-5 border-t border-sand/5 pt-4">
+                      <Link
+                        to={`/monument/${m.id}`}
+                        className="group/btn inline-flex w-full items-center justify-between font-mono text-[10px] uppercase tracking-widest text-sand/40 transition-colors hover:text-copper-light"
+                      >
+                        <span>View Full Details</span>
+                        <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-1" />
+                      </Link>
                     </div>
                   </div>
                 </motion.article>
@@ -1039,7 +990,7 @@ const Home = () => {
         {/* NEW SECTION — LIVE MONITORING MAP */}
         <section className="relative bg-[#0a0806] py-24 md:py-32 overflow-hidden border-t border-sand/5">
           <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, rgba(180,120,60,0.05) 2px, transparent 2px)', backgroundSize: '40px 40px' }} />
-          
+
           <motion.div
             className="mx-auto w-full max-w-6xl px-6 relative z-10"
             initial="hidden"
@@ -1056,14 +1007,14 @@ const Home = () => {
                 Every monument. In real time.
               </h2>
               <p className="text-[13px] text-sand/55 leading-relaxed">
-                Our embedded tactical map gives an immediate overview of structural health across the medina. 
+                Our embedded tactical map gives an immediate overview of structural health across the medina.
                 Markers pulse with dynamic risk levels, ensuring authorities have absolute situational awareness.
               </p>
             </div>
 
             <div className="relative w-full h-[500px] md:h-[600px] rounded-xl border border-sand/10 overflow-hidden shadow-2xl shadow-black/80 bg-[#0f0d0b]">
               <MapView embedded={true} />
-              
+
               {/* Optional overlay UI to link to full map */}
               <div className="absolute top-4 right-4 z-[1001]">
                 <button onClick={() => navigate('/monuments?view=map')} className="flex items-center gap-2 bg-[#1a1208]/80 backdrop-blur-md border border-sand/15 hover:border-copper-light/40 transition-colors rounded-lg px-4 py-2 shadow-lg group">
@@ -1075,7 +1026,7 @@ const Home = () => {
               {/* Stat overlay */}
               <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-[1001]">
                 <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-2 md:gap-4 bg-[#1a1208]/90 backdrop-blur-md border border-sand/10 rounded-xl p-2 md:p-3 shadow-xl">
-                  {[{label: "Sites monitored", val: "12+"}, {label: "Coverage of ramparts", val: "100%"}, {label: "Alert Updates", val: "Active"}].map(stat => (
+                  {[{ label: "Sites monitored", val: "12+" }, { label: "Coverage of ramparts", val: "100%" }, { label: "Alert Updates", val: "Active" }].map(stat => (
                     <div key={stat.label} className="bg-white/5 rounded-lg px-3 lg:px-4 py-2 flex flex-col items-center flex-1 md:flex-none">
                       <span className="text-sand-light font-heading text-lg leading-none mb-1">{stat.val}</span>
                       <span className="text-sand/40 text-[9px] font-mono uppercase tracking-wider">{stat.label}</span>
