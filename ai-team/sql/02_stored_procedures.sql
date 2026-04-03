@@ -15,7 +15,9 @@ DELIMITER $$
 -- Procedure: CalculateVulnerabilityScore
 -- Purpose : Compute vulnerability score for a given inspection
 --           and persist the result in vulnerability_scores
--- Notes   : Uses both age of monument and aggregated crack data
+-- Notes   : NEW Weighted Formula - Age acts as multiplier, not additive
+--           Crack severity is primary driver, age amplifies existing damage
+--           Category factor adjusts for different monument durability
 -- ==========================================================
 DROP PROCEDURE IF EXISTS CalculateVulnerabilityScore $$
 CREATE PROCEDURE CalculateVulnerabilityScore (
@@ -25,21 +27,29 @@ BEGIN
   -- All variable declarations MUST come before handlers in MySQL
   DECLARE v_monument_id        INT;
   DECLARE v_construction_year  INT;
-  DECLARE v_age_years          INT;
-  DECLARE v_age_score          INT DEFAULT 0;
-  DECLARE v_crack_score        INT DEFAULT 0;
+  DECLARE v_age_years        INT;
+  DECLARE v_age_score          INT DEFAULT 0;      -- For display/reference
+  DECLARE v_age_multiplier     DECIMAL(3,2) DEFAULT 1.0;  -- 1.0 to 1.5
+  DECLARE v_category_factor    DECIMAL(3,2) DEFAULT 1.0; -- Durability adjustment
+  DECLARE v_category_name      VARCHAR(100);
+  DECLARE v_raw_crack_score    INT DEFAULT 0;      -- Before age/category weighting
+  DECLARE v_crack_score        INT DEFAULT 0;      -- Final crack component
   DECLARE v_total_score        INT DEFAULT 0;
   DECLARE v_risk_level ENUM('low','medium','high','critical') DEFAULT 'low';
+  DECLARE v_has_critical_cracks INT DEFAULT 0;
 
-  -- Step 1 — Get monument and construction year from inspection
+  -- Step 1 — Get monument, construction year, and category from inspection
   SELECT
     i.monument_id,
-    m.construction_year
+    m.construction_year,
+    mc.category_name
   INTO
     v_monument_id,
-    v_construction_year
+    v_construction_year,
+    v_category_name
   FROM inspections i
   JOIN monuments m ON m.monument_id = i.monument_id
+  LEFT JOIN monument_categories mc ON m.category_id = mc.category_id
   WHERE i.inspection_id = p_inspection_id
   FOR UPDATE;
 
@@ -54,42 +64,78 @@ BEGIN
     END IF;
   END IF;
 
-  -- Step 2 — Compute age_score with capping at 50
-  SET v_age_score = FLOOR(v_age_years / 2);
-  IF v_age_score > 50 THEN
-    SET v_age_score = 50;
-  END IF;
+  -- Step 2 — Compute category durability factor
+  -- Stone structures are more durable; wood/plaster less so
+  SET v_category_factor = CASE
+    WHEN v_category_name = 'Rempart'       THEN 0.8   -- Stone walls very durable
+    WHEN v_category_name = 'Porte de ville' THEN 0.9 -- Stone gates, durable
+    WHEN v_category_name = 'Kasbah'         THEN 0.85 -- Fortified structures
+    WHEN v_category_name = 'Mosquée'        THEN 1.0  -- Mixed materials
+    WHEN v_category_name = 'Maison traditionnelle' THEN 1.2 -- Wood/plaster, vulnerable
+    WHEN v_category_name = 'Jardin'         THEN 1.1  -- Living elements
+    ELSE 1.0  -- Default for unknown categories
+  END;
 
-  -- Step 3 — Compute crack_score based on severity weights
+  -- Step 3 — Compute raw crack_score including length consideration
+  -- Severity weights multiplied by length factor (longer cracks = higher impact)
   SELECT
     COALESCE(SUM(
-      CASE
-        WHEN severity = 'minor'    THEN 1
-        WHEN severity = 'moderate' THEN 3
-        WHEN severity = 'major'    THEN 7
-        WHEN severity = 'critical' THEN 15
+      CASE severity
+        WHEN 'minor'    THEN FLOOR(1 * LEAST(COALESCE(length_cm, 10) / 10, 2))
+        WHEN 'moderate' THEN FLOOR(3 * LEAST(COALESCE(length_cm, 20) / 20, 3))
+        WHEN 'major'    THEN FLOOR(7 * LEAST(COALESCE(length_cm, 30) / 30, 4))
+        WHEN 'critical' THEN 15  -- Critical is always max, length irrelevant
         ELSE 0
       END
-    ), 0)
-  INTO v_crack_score
+    ), 0),
+    COUNT(CASE WHEN severity = 'critical' THEN 1 END)
+  INTO v_raw_crack_score, v_has_critical_cracks
   FROM cracks
   WHERE inspection_id = p_inspection_id;
 
-  -- Step 4 — Total score combination
-  SET v_total_score = v_age_score + v_crack_score;
+  -- Step 4 — Compute age_multiplier and age_score
+  -- Age only matters if there are cracks (structural concern exists)
+  -- Otherwise an old monument in good condition is LOW risk
+  IF v_raw_crack_score = 0 THEN
+    SET v_age_multiplier = 1.0;
+    SET v_age_score = 0;
+  ELSE
+    -- Age multiplier: 1.0 (new) to 1.5 (500+ years old)
+    -- Cracks on old monuments escalate risk faster
+    SET v_age_multiplier = 1.0 + LEAST(v_age_years / 1000.0, 0.5);
+    -- Reduced base age score, cap at 10 (was 20)
+    SET v_age_score = FLOOR(v_age_years / 20);
+    IF v_age_score > 10 THEN
+      SET v_age_score = 10;
+    END IF;
+  END IF;
 
-  -- Step 5 — Risk level classification based on total_score
-  IF v_total_score <= 25 THEN
+  -- Step 5 — Calculate weighted crack score
+  SET v_crack_score = FLOOR(v_raw_crack_score * v_age_multiplier);
+
+  -- Step 6 — Total score combination with category factor
+  -- Formula: (crack_score + age_score) × category_factor
+  SET v_total_score = FLOOR((v_crack_score + v_age_score) * v_category_factor);
+
+  -- Step 7 — Risk level classification based on weighted total_score
+  -- Thresholds adjusted for new scoring range
+  IF v_total_score <= 15 THEN
     SET v_risk_level = 'low';
-  ELSEIF v_total_score BETWEEN 26 AND 50 THEN
+  ELSEIF v_total_score BETWEEN 16 AND 35 THEN
     SET v_risk_level = 'medium';
-  ELSEIF v_total_score BETWEEN 51 AND 75 THEN
+  ELSEIF v_total_score BETWEEN 36 AND 60 THEN
     SET v_risk_level = 'high';
   ELSE
     SET v_risk_level = 'critical';
   END IF;
 
-  -- Step 6 — Persist computed score
+  -- Override: Any critical cracks immediately escalate to high minimum
+  IF v_has_critical_cracks > 0 AND v_risk_level IN ('low', 'medium') THEN
+    SET v_risk_level = 'high';
+    SET v_total_score = GREATEST(v_total_score, 36);  -- Force into high bracket
+  END IF;
+
+  -- Step 8 — Persist computed score
   INSERT INTO vulnerability_scores (
     monument_id,
     inspection_id,
@@ -108,7 +154,7 @@ BEGIN
     NOW()
   );
 
-  -- Step 7 — If risk is high or critical, immediately flag monument as critical
+  -- Step 9 — If risk is high or critical, immediately flag monument as critical
   IF v_risk_level IN ('high', 'critical') THEN
     UPDATE monuments
     SET status = 'critical'
@@ -217,7 +263,7 @@ BEGIN
   FROM cracks
   WHERE inspection_id = p_inspection_id;
 
-  -- Step 5 — Build human-readable French title
+  -- Step 5 — Build human-readable French title (UTF-8 safe)
   SET v_title = CONCAT('Rapport - ', v_monument_name, ' - ', DATE_FORMAT(NOW(), '%M %Y'));
 
   -- Step 6 — Build structured French report content using CONCAT_WS for clarity
