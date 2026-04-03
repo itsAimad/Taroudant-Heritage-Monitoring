@@ -36,10 +36,10 @@ async def log_crack(
         insp[0]['inspector_id'] != current_user['id']):
         raise HTTPException(403, 'Access denied.')
 
-    # UPDATE status from draft to in_progress if still draft
+    # UPDATE status from draft to pending if still draft
     if insp[0]['status'] == 'draft':
         execute_write(conn,
-            "UPDATE inspections SET status = 'in_progress' WHERE inspection_id = %s",
+            "UPDATE inspections SET status = 'pending' WHERE inspection_id = %s",
             (data.inspection_id,))
 
     # INSERT crack — triggers CalculateVulnerabilityScore
@@ -101,15 +101,16 @@ async def upload_crack_photo(
         crack_rows[0]['inspector_id'] != current_user['id']):
         raise HTTPException(403, 'Access denied.')
 
-    photo_id = execute_write(conn, """
-        INSERT INTO crack_photos
-          (crack_id, photo_data, mime_type, file_size, caption)
-        VALUES (%s, %s, %s, %s, %s)
-    """, (crack_id, content, file.content_type, len(content), caption))
+    # Store the photo as BLOB with mime type
+    execute_write(conn, """
+        UPDATE cracks
+        SET photo_blob = %s, photo_mime_type = %s
+        WHERE crack_id = %s
+    """, (content, file.content_type or 'image/jpeg', crack_id))
 
     return {
-        'message':   'Photo uploaded.',
-        'photo_id':  photo_id,
+        'message':   'Photo uploaded and stored in database.',
+        'crack_id':  crack_id,
         'file_size': len(content),
     }
 
@@ -120,31 +121,42 @@ async def get_crack_photos(
     conn         = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    """Get photo metadata for a crack (blob available via /photo/{crack_id})."""
     rows = execute_query(conn, """
-        SELECT photo_id, mime_type, file_size, caption, uploaded_at
-        FROM crack_photos
-        WHERE crack_id = %s
-        ORDER BY uploaded_at ASC
+        SELECT c.crack_id,
+               CASE WHEN c.photo_blob IS NOT NULL THEN 1 ELSE 0 END as has_photo,
+               c.photo_mime_type as mime_type,
+               LENGTH(c.photo_blob) as file_size,
+               c.detected_at as uploaded_at
+        FROM cracks c
+        WHERE c.crack_id = %s
     """, (crack_id,))
     return {'count': len(rows), 'results': rows}
 
 
-@router.get('/photo/{photo_id}')
+@router.get('/{crack_id}/image')
 async def get_photo_data(
-    photo_id:    int,
+    crack_id:    int,
     conn         = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
+    """Retrieve the photo blob for a specific crack."""
     rows = execute_query(conn, """
-        SELECT photo_data, mime_type
-        FROM crack_photos
-        WHERE photo_id = %s LIMIT 1
-    """, (photo_id,))
+        SELECT c.photo_blob, c.photo_mime_type, i.inspector_id, i.monument_id
+        FROM cracks c
+        JOIN inspections i ON c.inspection_id = i.inspection_id
+        WHERE c.crack_id = %s LIMIT 1
+    """, (crack_id,))
     if not rows:
         raise HTTPException(404, 'Photo not found.')
+
+    row = rows[0]
+    if not row['photo_blob']:
+        raise HTTPException(404, 'No photo uploaded for this crack.')
+
     return Response(
-        content=bytes(rows[0]['photo_data']),
-        media_type=rows[0]['mime_type']
+        content=bytes(row['photo_blob']),
+        media_type=row['photo_mime_type'] or 'image/jpeg'
     )
 
 
@@ -164,10 +176,24 @@ async def get_cracks_for_inspection(
         raise HTTPException(403, 'Access denied.')
 
     rows = execute_query(conn, """
-        SELECT c.*,
-          (SELECT COUNT(*) FROM crack_photos cp WHERE cp.crack_id = c.crack_id) AS photo_count
+        SELECT c.crack_id, c.inspection_id, c.location_on_monument,
+               c.severity, c.length_cm, c.detected_at,
+               CASE WHEN c.photo_blob IS NOT NULL THEN 1 ELSE 0 END as has_photo,
+               c.photo_mime_type
         FROM cracks c
         WHERE c.inspection_id = %s
         ORDER BY detected_at DESC
     """, (inspection_id,))
+
+    # Build photo URLs pointing to the photo endpoint
+    for r in rows:
+        if r['has_photo']:
+            # Return API endpoint URL that serves the blob
+            r['photo_url'] = f"/api/cracks/{r['crack_id']}/image"
+        else:
+            r['photo_url'] = None
+        # Remove internal columns from response
+        del r['has_photo']
+        del r['photo_mime_type']
+
     return {'count': len(rows), 'results': rows}

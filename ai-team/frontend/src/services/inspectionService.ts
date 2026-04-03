@@ -41,6 +41,20 @@ export interface VulnerabilityScore {
   computed_at: string
 }
 
+export interface Report {
+  report_id:        number
+  monument_id:      number
+  monument_name:    string
+  inspection_id:    number
+  generated_by:     number
+  generated_by_name: string
+  title:            string
+  risk_level:       string
+  total_score:      number
+  status:           'draft' | 'final' | 'validated' | 'disputed' | 'archived'
+  created_at:       string
+}
+
 const handle = async (res: Response) => {
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.detail ?? 'Error')
@@ -139,8 +153,8 @@ export const inspectionService = {
     return handle(res)
   },
 
-  getCrackPhotoUrl: (photoId: number) =>
-    `${API_BASE}/api/cracks/photo/${photoId}`,
+  getCrackPhotoUrl: (crackId: number) =>
+    `${API_BASE}/api/cracks/${crackId}/image`,
 
   generateReport: async (data: {
     monument_id:   number
@@ -170,4 +184,33 @@ export const inspectionService = {
     })
     return handle(res)
   },
+
+  getReportById: async (reportId: number) => {
+    const res = await apiFetch(`/api/reports/${reportId}`)
+    return handle(res)
+  },
+
+  getTriggeredNotifications: async () => {
+    const res = await apiFetch('/api/notifications/triggered')
+    return handle(res)
+  },
+
+  getDetail: async (id: number) => {
+    const res = await apiFetch(`/api/inspections/${id}/detail`)
+    return handle(res)
+  },
+
+  downloadReportPdf: async (reportId: number): Promise<{ blob: Blob; filename: string }> => {
+    const res = await fetch(`${API_BASE}/api/reports/${reportId}/pdf`, {
+      method: 'GET',
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Download failed')
+    const disposition = res.headers.get('Content-Disposition') ?? ''
+    const match = disposition.match(/filename="(.+)"/)
+    const filename = match ? match[1] : `report_${reportId}.pdf`
+    const blob = await res.blob()
+    return { blob, filename }
+  },
 }
+
