@@ -66,3 +66,27 @@ async def mark_all_read(
         WHERE recipient_id = %s
     """, (current_user['id'],))
     return {'message': 'All notifications marked as read.'}
+
+
+@router.get('/triggered')
+async def get_triggered_notifications(
+    conn         = Depends(get_db),
+    current_user = Depends(require_role(UserRole.INSPECTOR, UserRole.ADMIN))
+):
+    """Fetch notifications that were triggered by inspections performed by the current user."""
+    rows = execute_query(conn, """
+        SELECT
+          n.*,
+          m.name       AS monument_name
+        FROM notifications n
+        JOIN inspections i ON n.triggered_by_inspection = i.inspection_id
+        LEFT JOIN monuments m ON n.monument_id = m.monument_id
+        WHERE i.inspector_id = %s
+        ORDER BY n.sent_at DESC
+        LIMIT 50
+    """, (current_user['id'],))
+    
+    return {
+        'count':   len(rows),
+        'results': rows
+    }
