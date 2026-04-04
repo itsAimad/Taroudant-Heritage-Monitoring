@@ -4,6 +4,7 @@ import { Shield, Menu, X, LogOut, User, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { adminService } from '@/services/adminService';
 import { notificationService } from '@/services/notificationService';
 
 const Navbar = () => {
@@ -15,9 +16,12 @@ const Navbar = () => {
 
   const isHome = location.pathname === '/';
 
-  const publicLinks = [
-    { to: '/', label: 'Home' },
+  const commonLinks = [
     { to: '/monuments', label: 'Monuments' },
+  ];
+
+  const publicOnlyLinks = [
+    { to: '/', label: 'Home' },
     { to: '/about', label: 'About' },
   ];
 
@@ -25,20 +29,30 @@ const Navbar = () => {
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/risk-lab', label: 'Risk Lab' },
     { to: '/analytics', label: 'Analytics' },
-    { to: '/architecture', label: 'Architecture' },
   ];
 
   useEffect(() => {
     if (isAuthenticated && (user?.role === 'admin' || user?.role === 'authority')) {
-      const fetchNotifs = () => {
-        notificationService.getAll().then(data => {
-          const unread = data.results?.filter((n: any) => !n.is_read).length || 0;
-          setUnreadCount(unread);
-        }).catch(err => console.error('Failed to fetch notifications:', err));
+      const fetchCounts = async () => {
+        try {
+          // Fetch system notifications
+          const notifsData = await notificationService.getAll();
+          const unreadNotifs = notifsData.results?.filter((n: any) => !n.is_read).length || 0;
+          
+          let pendingReqs = 0;
+          // For admins, also count pending access requests
+          if (user?.role === 'admin') {
+            const reqsData = await adminService.getAccessRequests('pending');
+            pendingReqs = reqsData.results?.length || 0;
+          }
+          
+          setUnreadCount(unreadNotifs + pendingReqs);
+        } catch (err) {
+          console.error('Failed to fetch notification counts:', err);
+        }
       };
-      fetchNotifs();
-      const interval = setInterval(fetchNotifs, 30000);
-      return () => clearInterval(interval);
+      
+      fetchCounts();
     }
   }, [isAuthenticated, user?.role]);
 
@@ -62,7 +76,21 @@ const Navbar = () => {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
-            {publicLinks.map(l => (
+            {!isAuthenticated && publicOnlyLinks.map(l => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={({ isActive }) =>
+                  `px-3 py-2 rounded-md text-sm transition-colors ${isActive
+                    ? 'text-copper-light font-medium'
+                    : (isHome ? 'text-sand/60 hover:text-sand font-medium' : 'text-muted-foreground hover:text-foreground font-medium')
+                  }`
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+            {commonLinks.map(l => (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -82,9 +110,14 @@ const Navbar = () => {
               </Link>
             ))}
             {isAuthenticated && user?.role === 'admin' && (
-              <Link to="/admin/users" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/admin/users' ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
-                Users
-              </Link>
+              <>
+                <Link to="/admin/users" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/admin/users' ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
+                  Users
+                </Link>
+                <Link to="/admin/monuments" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/admin/monuments' ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
+                  Manage Monuments
+                </Link>
+              </>
             )}
           </div>
 
@@ -100,7 +133,9 @@ const Navbar = () => {
                   </Link>
                 )}
                 <Badge className={`${roleBadgeColor} text-xs uppercase`}>{user.role}</Badge>
-                <span className={`text-sm font-medium ${isHome ? 'text-sand/90' : 'text-foreground'}`}>{user.full_name?.split(' ')[0] || 'User'}</span>
+                <span className={`text-sm font-medium ${isHome ? 'text-sand/90' : 'text-foreground'}`}>
+                  {user.full_name ? user.full_name.split(' ')[0] : (user.email.split('@')[0] || 'User')}
+                </span>
                 <Button variant="ghost" size="sm" onClick={handleLogout} className={isHome ? 'text-sand/70 hover:text-sand' : ''}>
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -125,7 +160,22 @@ const Navbar = () => {
       {mobileOpen && (
         <div className={`md:hidden ${isHome ? 'bg-charcoal/95' : 'bg-background/95'} backdrop-blur-md border-t border-border`}>
           <div className="px-4 py-3 space-y-1">
-            {publicLinks.map(l => (
+            {!isAuthenticated && publicOnlyLinks.map(l => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                onClick={() => setMobileOpen(false)}
+                className={({ isActive }) =>
+                  `block px-3 py-2 rounded-md text-sm ${isActive
+                    ? 'text-copper-light font-medium bg-black/10'
+                    : (isHome ? 'text-sand' : 'text-foreground')
+                  }`
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+            {commonLinks.map(l => (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -144,7 +194,15 @@ const Navbar = () => {
               <Link key={l.to} to={l.to} onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>{l.label}</Link>
             ))}
             {isAuthenticated ? (
-              <button onClick={() => { handleLogout(); setMobileOpen(false); }} className={`block w-full text-left px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>Logout</button>
+              <>
+                {user?.role === 'admin' && (
+                  <>
+                    <Link to="/admin/users" onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>Users</Link>
+                    <Link to="/admin/monuments" onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>Manage Monuments</Link>
+                  </>
+                )}
+                <button onClick={() => { handleLogout(); setMobileOpen(false); }} className={`block w-full text-left px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>Logout</button>
+              </>
             ) : (
               <Link to="/login" onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-copper-light' : 'text-primary'}`}>Enter System</Link>
             )}

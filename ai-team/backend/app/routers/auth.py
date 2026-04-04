@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
-from ..database import get_db
+from datetime import datetime
+from ..database import get_db, execute_query, execute_write
 from ..config import settings
 from ..models.user import LoginRequest, UserResponse
+from ..models.access_request import AccountCompletionRequest
 from ..services.auth_service import create_token, decode_token
 from ..services.user_service import (
     authenticate_user, update_last_login, get_user_by_id
@@ -126,6 +128,81 @@ async def refresh_token(
 
     _set_cookies(response, user)
     return {'message': 'Token refreshed successfully.'}
+
+
+@router.get('/verify-token')
+async def verify_token(
+    token: str,
+    conn = Depends(get_db)
+):
+    rows = execute_query(
+        conn,
+        '''SELECT u.full_name, u.email, r.role_name, u.completion_token_expiry
+           FROM users u
+           JOIN roles r ON u.role_id = r.role_id
+           WHERE u.completion_token = %s LIMIT 1''',
+        (token,)
+    )
+    if not rows:
+        raise HTTPException(status_code=400, detail="Invalid token.")
+    
+    user = rows[0]
+    # Check expiry
+    if user['completion_token_expiry'] < datetime.now():
+        raise HTTPException(status_code=400, detail="Link expired. Contact admin for a new one.")
+    
+    return {
+        "valid":     True,
+        "full_name": user['full_name'],
+        "email":     user['email'],
+        "role":      user['role_name']
+    }
+
+
+@router.post('/complete-account')
+async def complete_account(
+    data: AccountCompletionRequest,
+    conn = Depends(get_db)
+):
+    # 1. Find user
+    rows = execute_query(
+        conn,
+        "SELECT id_user, email, completion_token_expiry FROM users WHERE completion_token = %s LIMIT 1",
+        (data.token,)
+    )
+    if not rows:
+        raise HTTPException(status_code=400, detail="Invalid token.")
+    
+    user = rows[0]
+    if user['completion_token_expiry'] < datetime.now():
+        raise HTTPException(status_code=400, detail="Link expired.")
+
+    # 2. Hash password
+    # Note: Using the same hashing logic as in user_service.py (bcrypt)
+    import bcrypt
+    salt = bcrypt.gensalt(rounds=12)
+    hashed = bcrypt.hashpw(data.password.encode('utf-8'), salt).decode('utf-8')
+
+    # 3. Update user
+    execute_write(
+        conn,
+        '''UPDATE users
+           SET password_hash = %s,
+               completion_token = NULL,
+               completion_token_expiry = NULL,
+               is_active = TRUE
+           WHERE id_user = %s''',
+        (hashed, user['id_user'])
+    )
+
+    # 4. Audit log
+    execute_write(
+        conn,
+        "INSERT INTO audit_logs (user_id, action, details) VALUES (%s, 'ACCOUNT_COMPLETED', %s)",
+        (user['id_user'], f"User {user['email']} completed account setup")
+    )
+
+    return {"message": "Account setup complete. You can now log in."}
 
 
 @router.get('/me', response_model=UserResponse)

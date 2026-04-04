@@ -1,6 +1,6 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Shield, X, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Shield, X, ChevronDown } from 'lucide-react';
 import { authService, ApiError } from '@/services/authService';
 
 interface RequestAccessModalProps {
@@ -14,14 +14,15 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
   const [form, setForm] = useState({
     fullName: '',
     email: '',
+    phone: '',
     organization: '',
-    role: '',
+    requested_role_id: 0,
     reason: '',
   });
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errors, setErrors] = useState<Partial<typeof form>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof typeof form, string>>>({});
 
-  const handleChange = (field: keyof typeof form, value: string) => {
+  const handleChange = (field: keyof typeof form, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -29,7 +30,7 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
   };
 
   const validate = () => {
-    const nextErrors: Partial<typeof form> = {};
+    const nextErrors: Partial<Record<keyof typeof form, string>> = {};
     if (!form.fullName || form.fullName.trim().length < 2) {
       nextErrors.fullName = 'Please enter your full name.';
     }
@@ -39,8 +40,8 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
     if (!form.organization || form.organization.trim().length < 2) {
       nextErrors.organization = 'Please enter your organization.';
     }
-    if (!form.role) {
-      nextErrors.role = 'Please choose a requested role.';
+    if (!form.requested_role_id) {
+      nextErrors.requested_role_id = 'Please choose a requested role.';
     }
     if (!form.reason || form.reason.trim().length < 20) {
       nextErrors.reason = 'Please provide at least 20 characters explaining your request.';
@@ -53,8 +54,9 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
     setForm({
       fullName: '',
       email: '',
+      phone: '',
       organization: '',
-      role: '',
+      requested_role_id: 0,
       reason: '',
     });
     setErrors({});
@@ -62,34 +64,35 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validate()) return
-    setStatus('loading')
+    e.preventDefault();
+    if (!validate()) return;
+    setStatus('loading');
     try {
       await authService.submitAccessRequest({
-        full_name:    form.fullName,
-        email:        form.email,
+        full_name: form.fullName,
+        email: form.email,
+        phone: form.phone,
         organization: form.organization,
-        role:         form.role,
-        reason:       form.reason,
-      })
-      setStatus('success')
+        requested_role_id: form.requested_role_id,
+        reason: form.reason,
+      });
+      setStatus('success');
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          setErrors(prev => ({ ...prev, email: err.detail }))
-          setStatus('idle')
-          return
+          setErrors(prev => ({ ...prev, email: err.detail }));
+          setStatus('idle');
+          return;
         }
         if (err.status === 422) {
-          setErrors(prev => ({ ...prev, reason: 'Please check your input and try again.' }))
-          setStatus('idle')
-          return
+          setErrors(prev => ({ ...prev, reason: 'Please check your input and try again.' }));
+          setStatus('idle');
+          return;
         }
       }
-      setStatus('error')
+      setStatus('error');
     }
-  }
+  };
 
   const handleClose = () => {
     if (status === 'loading') return;
@@ -117,7 +120,7 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
 
           {/* Panel */}
           <motion.div
-            className="relative z-10 w-full max-w-lg max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl border border-sand/10 bg-[#1a1208] p-8 shadow-2xl shadow-black/60 flex flex-col"
+            className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-sand/10 bg-[#1a1208] p-8 shadow-2xl shadow-black/60 flex flex-col"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
@@ -198,11 +201,7 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Full name */}
                 <motion.div
-                  animate={
-                    errors.fullName
-                      ? { x: [0, -6, 6, -4, 4, 0] }
-                      : {}
-                  }
+                  animate={errors.fullName ? { x: [0, -6, 6, -4, 4, 0] } : {}}
                   transition={{ duration: 0.4 }}
                 >
                   <label className="block text-xs font-medium tracking-[0.18em] text-sand/50 uppercase mb-1.5">
@@ -225,11 +224,7 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
 
                 {/* Email */}
                 <motion.div
-                  animate={
-                    errors.email
-                      ? { x: [0, -6, 6, -4, 4, 0] }
-                      : {}
-                  }
+                  animate={errors.email ? { x: [0, -6, 6, -4, 4, 0] } : {}}
                   transition={{ duration: 0.4 }}
                 >
                   <label className="block text-xs font-medium tracking-[0.18em] text-sand/50 uppercase mb-1.5">
@@ -252,11 +247,7 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
 
                 {/* Organization */}
                 <motion.div
-                  animate={
-                    errors.organization
-                      ? { x: [0, -6, 6, -4, 4, 0] }
-                      : {}
-                  }
+                  animate={errors.organization ? { x: [0, -6, 6, -4, 4, 0] } : {}}
                   transition={{ duration: 0.4 }}
                 >
                   <label className="block text-xs font-medium tracking-[0.18em] text-sand/50 uppercase mb-1.5">
@@ -279,11 +270,7 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
 
                 {/* Role */}
                 <motion.div
-                  animate={
-                    errors.role
-                      ? { x: [0, -6, 6, -4, 4, 0] }
-                      : {}
-                  }
+                  animate={errors.requested_role_id ? { x: [0, -6, 6, -4, 4, 0] } : {}}
                   transition={{ duration: 0.4 }}
                 >
                   <label className="block text-xs font-medium tracking-[0.18em] text-sand/50 uppercase mb-1.5">
@@ -291,35 +278,31 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
                   </label>
                   <div className="relative">
                     <select
-                      value={form.role}
-                      onChange={(e) => handleChange('role', e.target.value)}
-                      className={`w-full appearance-none rounded-md border border-sand/10 bg-sand/5 px-4 py-2.5 pr-10 text-sm text-sand placeholder:text-sand/25 focus:outline-none focus:border-copper-light/40 focus:bg-sand/8 transition-colors duration-200 ${errors.role ? 'border-red-500/50 bg-red-950/10' : ''
+                      value={form.requested_role_id || ''}
+                      onChange={(e) => handleChange('requested_role_id', parseInt(e.target.value))}
+                      className={`w-full appearance-none rounded-md border border-sand/10 bg-sand/5 px-4 py-2.5 pr-10 text-sm text-sand placeholder:text-sand/25 focus:outline-none focus:border-copper-light/40 focus:bg-sand/8 transition-colors duration-200 ${errors.requested_role_id ? 'border-red-500/50 bg-red-950/10' : ''
                         }`}
                     >
                       <option value="">Select a role…</option>
-                      <option value="inspector">
+                      <option value="2">
                         Inspector — Field survey access
                       </option>
-                      <option value="authority">
+                      <option value="3">
                         Authority — Reports &amp; alerts access
                       </option>
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sand/40" />
                   </div>
-                  {errors.role && (
+                  {errors.requested_role_id && (
                     <p className="mt-1 text-xs text-red-400/80">
-                      {errors.role}
+                      {errors.requested_role_id}
                     </p>
                   )}
                 </motion.div>
 
                 {/* Reason */}
                 <motion.div
-                  animate={
-                    errors.reason
-                      ? { x: [0, -6, 6, -4, 4, 0] }
-                      : {}
-                  }
+                  animate={errors.reason ? { x: [0, -6, 6, -4, 4, 0] } : {}}
                   transition={{ duration: 0.4 }}
                 >
                   <label className="block text-xs font-medium tracking-[0.18em] text-sand/50 uppercase mb-1.5">
@@ -378,5 +361,3 @@ const RequestAccessModal = ({ isOpen, onClose }: RequestAccessModalProps) => {
 };
 
 export default RequestAccessModal;
-
-

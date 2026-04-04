@@ -1,0 +1,7 @@
+# Cursor IDE — do not commit local/editor state
+.cursor/
+**/.cursor/
+
+# Claude Code / local agent settings (often machine-specific)
+.claude/
+**/.claude/

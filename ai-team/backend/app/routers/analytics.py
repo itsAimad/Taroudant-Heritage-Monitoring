@@ -53,6 +53,7 @@ async def get_analytics(
     # 4. Top 5 most vulnerable monuments
     vulnerable = execute_query(conn, """
         SELECT
+          m.monument_id,
           m.name,
           m.location,
           vs.total_score,
@@ -77,6 +78,7 @@ async def get_analytics(
           (SELECT COUNT(*) FROM cracks) AS total_cracks,
           (SELECT COUNT(*) FROM notifications
            WHERE is_read = FALSE) AS unread_alerts,
+          (SELECT MAX(inspection_date) FROM inspections) AS last_inspection_at,
           (SELECT COUNT(*) FROM reports) AS total_reports
     """)
 

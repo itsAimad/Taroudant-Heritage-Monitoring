@@ -19,7 +19,27 @@ export const adminService = {
   },
 
   getAssignments: async () => {
-    const res = await apiFetch('/api/admin/assignments')
+    const res = await apiFetch('/api/assignments/')
+    return handle(res)
+  },
+
+  createAssignment: async (data: {
+    inspector_id: number
+    monument_id: number
+    due_date: string
+    notes?: string
+  }) => {
+    const res = await apiFetch('/api/assignments/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    return handle(res)
+  },
+
+  deleteAssignment: async (id: number) => {
+    const res = await apiFetch(`/api/assignments/${id}`, {
+      method: 'DELETE',
+    })
     return handle(res)
   },
 
@@ -54,11 +74,19 @@ export const adminService = {
     return handle(res)
   },
 
+  updateUser: async (userId: number, data: any) => {
+    const res = await apiFetch(
+      `/api/users/${userId}`,
+      { method: 'PATCH', body: JSON.stringify(data) }
+    )
+    return handle(res)
+  },
+
   getAccessRequests: async (
     status?: string
   ) => {
     const url = status
-      ? `/api/access-requests/?filter_status=${status}`
+      ? `/api/access-requests/?status=${status}`
       : '/api/access-requests/'
     const res = await apiFetch(url)
     return handle(res)
@@ -70,13 +98,10 @@ export const adminService = {
     note: string
   ) => {
     const res = await apiFetch(
-      `/api/access-requests/${id}/review`,
+      `/api/access-requests/${id}/${status === 'approved' ? 'approve' : 'reject'}`,
       {
-        method: 'PATCH',
-        body: JSON.stringify({
-          status,
-          review_note: note
-        }),
+        method: 'POST',
+        body: JSON.stringify({ review_note: note }),
       }
     )
     return handle(res)

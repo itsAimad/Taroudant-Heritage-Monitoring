@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
@@ -16,11 +16,13 @@ const Login = React.lazy(() => import("@/pages/Login"));
 const Monuments = React.lazy(() => import("@/pages/Monuments"));
 const About = React.lazy(() => import("@/pages/About"));
 const MonumentDetail = React.lazy(() => import("@/pages/MonumentDetail"));
+const CompleteAccount = React.lazy(() => import("@/pages/CompleteAccount"));
 
 // Dashboards
 const InspectorDashboard = React.lazy(() => import("@/pages/inspector/InspectorDashboard"));
 const AuthorityDashboard = React.lazy(() => import("@/pages/authority/AuthorityDashboard"));
 const AdminDashboard = React.lazy(() => import("@/pages/admin/AdminDashboard"));
+const MonumentManagement = React.lazy(() => import("@/pages/admin/MonumentManagement"));
 
 // Inspection Tools
 const NewInspection = React.lazy(() => import("@/pages/inspector/NewInspection"));
@@ -38,11 +40,15 @@ const queryClient = new QueryClient();
 
 // Role-based dashboard router
 const DashboardRouter = () => {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  
+  if (isLoading) return <AppLoader static />;
+  
   if (user?.role === 'inspector') return <InspectorDashboard />;
   if (user?.role === 'authority') return <AuthorityDashboard />;
   if (user?.role === 'admin') return <AdminDashboard />;
-  return <Navigate to="/" />;
+  
+  return <Navigate to="/" replace />;
 };
 
 const AppRoutes = () => {
@@ -98,6 +104,14 @@ const AppRoutes = () => {
             element={
               <PageTransition>
                 <MapView />
+              </PageTransition>
+            }
+          />
+          <Route
+            path="/complete-account"
+            element={
+              <PageTransition>
+                <CompleteAccount />
               </PageTransition>
             }
           />
@@ -173,10 +187,22 @@ const AppRoutes = () => {
           {/* Admin Routes */}
           <Route element={<PrivateRoute allowedRoles={['admin']} />}>
             <Route
+              path="/admin"
+              element={<Navigate to="/admin/users" replace />}
+            />
+            <Route
               path="/admin/users"
               element={
                 <PageTransition>
                   <UserManagement />
+                </PageTransition>
+              }
+            />
+            <Route
+              path="/admin/monuments"
+              element={
+                <PageTransition>
+                  <MonumentManagement />
                 </PageTransition>
               }
             />

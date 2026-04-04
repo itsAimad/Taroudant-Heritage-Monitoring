@@ -151,3 +151,28 @@ def deactivate_user(conn, user_id: int):
         """,
         (user_id,)
     )
+
+def update_user_fields(conn, user_id: int, updates: dict):
+    if not updates:
+        return
+        
+    set_clauses = []
+    values = []
+    
+    for key, value in updates.items():
+        if key == 'role':
+            # Resolve role_id
+            role_rows = execute_query(conn, 'SELECT role_id FROM roles WHERE role_name = %s LIMIT 1', (value,))
+            if role_rows:
+                set_clauses.append("role_id = %s")
+                values.append(role_rows[0]['role_id'])
+        else:
+            set_clauses.append(f"{key} = %s")
+            values.append(value)
+            
+    if not set_clauses:
+        return
+        
+    query = f"UPDATE users SET {', '.join(set_clauses)} WHERE id_user = %s"
+    values.append(user_id)
+    execute_write(conn, query, tuple(values))

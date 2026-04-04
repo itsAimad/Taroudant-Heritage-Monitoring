@@ -1,19 +1,24 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { accessRequestService, AccessRequest } from '@/services/accessRequestService';
 import { useToast } from '@/hooks/useToast';
 import Toast from '@/components/ui/Toast';
 
 const relativeTime = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime();
+  if (!iso) return 'unknown';
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return 'unknown';
+  const diff = Date.now() - t;
+  if (diff < 0) return 'just now';
   const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
 };
 
-const roleBadgeClass = (role: AccessRequest['role']) => {
-  if (role === 'inspector') {
+const roleBadgeClass = (roleId: number) => {
+  if (roleId === 2) {
     return 'bg-blue-900/40 text-blue-300 border border-blue-800/30';
   }
   return 'bg-purple-900/40 text-purple-300 border border-purple-800/30';
@@ -28,68 +33,86 @@ const statusBadgeClass = (status: AccessRequest['status']) => {
 const AccessRequestsPanel = () => {
   const [requests, setRequests] = useState<AccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [reviewNoteById, setReviewNoteById] = useState<Record<string, string>>(
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reviewNoteById, setReviewNoteById] = useState<Record<number, string>>(
     {},
   );
   const { toasts, showToast, dismissToast } = useToast();
 
-  useEffect(() => {
-    let active = true;
+  const loadRequests = useCallback((cancelRef?: { cancelled: boolean }) => {
+    setLoading(true);
+    setLoadError(null);
     accessRequestService
       .getAllRequests()
       .then((data) => {
-        if (active) setRequests(data);
+        if (cancelRef?.cancelled) return;
+        setRequests(data);
+      })
+      .catch((err) => {
+        if (cancelRef?.cancelled) return;
+        console.error('Failed to fetch requests:', err);
+        setLoadError(
+          err instanceof Error ? err.message : 'Failed to load access requests.',
+        );
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (!cancelRef?.cancelled) setLoading(false);
       });
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useEffect(() => {
+    const cancelRef = { cancelled: false };
+    loadRequests(cancelRef);
+    return () => {
+      cancelRef.cancelled = true;
+    };
+  }, [loadRequests]);
 
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
 
-  const handleApprove = async (id: string) => {
+  const handleApprove = async (id: number) => {
+    const fullName = requests.find((r) => r.id === id)?.full_name;
     try {
-      const updated = await accessRequestService.updateRequestStatus(
-        id,
-        'approved',
-      );
+      await accessRequestService.approveRequest(id, reviewNoteById[id]);
       setRequests((prev) =>
-        prev.map((r) => (r.id === id ? updated : r)),
+        prev.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)),
       );
       showToast({
         type: 'success',
-        message: `Approved access request for ${updated.fullName}.`,
+        message: `Approved access request for ${fullName ?? 'requester'}.`,
       });
-    } catch {
+    } catch (err: any) {
       showToast({
         type: 'error',
-        message: 'Failed to approve request. Please try again.',
+        message: err.message || 'Failed to approve request. Please try again.',
       });
     }
   };
 
-  const handleReject = async (id: string) => {
+  const handleReject = async (id: number) => {
+    const note = reviewNoteById[id];
+    if (!note || note.trim().length < 5) {
+      showToast({
+        type: 'error',
+        message: 'Please provide a reason (at least 5 chars) for rejection.',
+      });
+      return;
+    }
+
+    const fullName = requests.find((r) => r.id === id)?.full_name;
     try {
-      const note = reviewNoteById[id];
-      const updated = await accessRequestService.updateRequestStatus(
-        id,
-        'rejected',
-        note,
-      );
+      await accessRequestService.rejectRequest(id, note);
       setRequests((prev) =>
-        prev.map((r) => (r.id === id ? updated : r)),
+        prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r)),
       );
       showToast({
         type: 'success',
-        message: `Rejected access request for ${updated.fullName}.`,
+        message: `Rejected access request for ${fullName ?? 'requester'}.`,
       });
-    } catch {
+    } catch (err: any) {
       showToast({
         type: 'error',
-        message: 'Failed to reject request. Please try again.',
+        message: err.message || 'Failed to reject request. Please try again.',
       });
     }
   };
@@ -115,6 +138,17 @@ const AccessRequestsPanel = () => {
 
       {loading ? (
         <p className="py-6 text-sm text-muted-foreground">Loading requests…</p>
+      ) : loadError ? (
+        <div className="py-6">
+          <p className="text-sm text-destructive">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => loadRequests()}
+            className="mt-3 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       ) : requests.length === 0 ? (
         <p className="py-6 text-sm text-muted-foreground">
           No access requests have been submitted yet.
@@ -129,7 +163,7 @@ const AccessRequestsPanel = () => {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="font-medium text-foreground">
-                    {r.fullName}
+                    {r.full_name}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {r.organization}
@@ -141,10 +175,10 @@ const AccessRequestsPanel = () => {
                 <div className="flex flex-col items-end gap-1">
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[10px] uppercase tracking-wider ${roleBadgeClass(
-                      r.role,
+                      r.requested_role_id,
                     )}`}
                   >
-                    {r.role}
+                    {r.role_name || 'unknown'}
                   </span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-[10px] capitalize ${statusBadgeClass(
@@ -154,7 +188,7 @@ const AccessRequestsPanel = () => {
                     {r.status}
                   </span>
                   <span className="text-[10px] text-muted-foreground">
-                    Submitted {relativeTime(r.submittedAt)}
+                    Submitted {relativeTime(r.submitted_at)}
                   </span>
                 </div>
               </div>
@@ -204,5 +238,3 @@ const AccessRequestsPanel = () => {
 };
 
 export default AccessRequestsPanel;
-
-

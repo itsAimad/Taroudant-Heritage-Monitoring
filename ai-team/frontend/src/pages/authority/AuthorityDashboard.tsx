@@ -45,7 +45,7 @@ export default function AuthorityDashboard() {
   const handleMarkRead = async (id: number) => {
     try {
       await notificationService.markRead(id)
-      setNotifications(notifications.map(n => 
+      setNotifications(notifications.map(n =>
         n.notification_id === id ? { ...n, is_read: true } : n
       ))
     } catch (err) {
@@ -93,7 +93,7 @@ export default function AuthorityDashboard() {
     <PageTransition>
       <div className="min-h-screen bg-background pt-20 px-4 sm:px-6 lg:px-8 pb-12">
         <div className="max-w-7xl mx-auto space-y-8">
-          
+
           <div className="flex justify-between items-end mb-8">
             <div>
               <h1 className="text-4xl font-heading text-foreground mb-2">Authority Overview</h1>
@@ -124,16 +124,13 @@ export default function AuthorityDashboard() {
               </div>
               <FileText className="w-8 h-8 text-primary/30" />
             </motion.div>
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className={`border p-6 rounded-lg flex items-center justify-between ${
-              unreadNotifs.length > 0 ? 'bg-amber-950/20 border-warning/50' : 'bg-card border-border'
-            }`}>
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className={`border p-6 rounded-lg flex items-center justify-between ${unreadNotifs.length > 0 ? 'bg-amber-950/20 border-warning/50' : 'bg-card border-border'
+              }`}>
               <div>
-                <div className={`text-xs font-medium tracking-wider uppercase mb-1 ${
-                  unreadNotifs.length > 0 ? 'text-warning/80' : 'text-muted-foreground'
-                }`}>Unread Alerts</div>
-                <div className={`text-3xl font-heading ${
-                  unreadNotifs.length > 0 ? 'text-warning' : 'text-foreground'
-                }`}><CountUp end={unreadNotifs.length} /></div>
+                <div className={`text-xs font-medium tracking-wider uppercase mb-1 ${unreadNotifs.length > 0 ? 'text-warning/80' : 'text-muted-foreground'
+                  }`}>Unread Alerts</div>
+                <div className={`text-3xl font-heading ${unreadNotifs.length > 0 ? 'text-warning' : 'text-foreground'
+                  }`}><CountUp end={unreadNotifs.length} /></div>
               </div>
               <Bell className={`w-8 h-8 ${unreadNotifs.length > 0 ? 'text-warning' : 'text-muted-foreground'}`} />
             </motion.div>
@@ -146,7 +143,7 @@ export default function AuthorityDashboard() {
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{ backgroundColor: 'currentColor', borderRadius: '8px' }}
                       itemStyle={{ color: '#ffffff' }}
                     />
@@ -182,8 +179,8 @@ export default function AuthorityDashboard() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
                     <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip 
-                      cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                     />
                     <Bar dataKey="total" name="Total Inspections" fill="#a36e4f" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="critical_count" name="Critical Findings" fill="#ef4444" radius={[4, 4, 0, 0]} />
@@ -214,10 +211,9 @@ export default function AuthorityDashboard() {
                       </div>
                       <div className="text-right flex items-center gap-6">
                         <div>
-                          <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${
-                            m.risk_level === 'critical' ? 'text-critical' : 
-                            m.risk_level === 'high' ? 'text-warning' : 'text-yellow-500'
-                          }`}>{m.risk_level}</div>
+                          <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${m.risk_level === 'critical' ? 'text-critical' :
+                              m.risk_level === 'high' ? 'text-warning' : 'text-yellow-500'
+                            }`}>{m.risk_level}</div>
                           <div className="text-xl font-heading text-foreground">{m.total_score}<span className="text-xs text-muted-foreground">/100</span></div>
                         </div>
                         <Link to={`/monument/${m.monument_id}`} className="text-muted-foreground hover:text-primary transition-colors">
@@ -233,7 +229,7 @@ export default function AuthorityDashboard() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
               <div className="p-4 px-6 border-b border-border flex justify-between items-center h-[72px] bg-muted/30">
                 <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
-                  Regional Alerts 
+                  Regional Alerts
                   {unreadNotifs.length > 0 && <Badge variant="destructive">{unreadNotifs.length}</Badge>}
                 </h3>
                 {unreadNotifs.length > 0 && (
@@ -249,9 +245,8 @@ export default function AuthorityDashboard() {
                       <div className="flex justify-between items-start gap-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <AlertTriangle className={`w-4 h-4 ${
-                              n.severity === 'critical' ? 'text-critical' : 'text-warning'
-                            }`} />
+                            <AlertTriangle className={`w-4 h-4 ${n.severity === 'critical' ? 'text-critical' : 'text-warning'
+                              }`} />
                             <span className="text-xs tracking-wider text-muted-foreground">{new Date(n.sent_at).toLocaleString()}</span>
                             {!n.is_read && <div className="w-2 h-2 rounded-full bg-warning"></div>}
                           </div>

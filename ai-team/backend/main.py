@@ -5,7 +5,7 @@ from app.config import settings
 from app.routers import (
     auth, users, access_requests, monuments,
     inspections, cracks, reports, notifications,
-    analytics, admin
+    analytics, admin, assignments
 )
 
 app = FastAPI(
@@ -44,6 +44,7 @@ app.include_router(reports.router,          prefix='/api')
 app.include_router(notifications.router,    prefix='/api')
 app.include_router(analytics.router,        prefix='/api')
 app.include_router(admin.router,            prefix='/api')
+app.include_router(assignments.router,      prefix='/api')
 
 @app.get('/api/health')
 async def health():

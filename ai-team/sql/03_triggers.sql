@@ -146,8 +146,8 @@ BEGIN
       NEW.id,
       NULL,
       CONCAT('Request from:', NEW.email,
-      ' | Role requested: ', NEW.role,
-      ' | Note: ', NEW.note),
+      ' | Role requested: ', NEW.requested_role_id,
+      ' | Note: ', NEW.review_note),
       NOW()
     );
   END IF;

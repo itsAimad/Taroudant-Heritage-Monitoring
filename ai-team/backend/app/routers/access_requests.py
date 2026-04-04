@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from ..database import get_db, execute_query, execute_write
 from ..models.access_request import (
     AccessRequestCreate,
@@ -8,6 +9,7 @@ from ..models.access_request import (
     ReviewRequest,
 )
 from ..dependencies import require_admin
+from ..services.email_service import send_approval_email, send_rejection_email
 
 router = APIRouter(prefix='/access-requests', tags=['Access Requests'])
 
@@ -17,7 +19,26 @@ async def submit_request(
     data: AccessRequestCreate,
     conn  = Depends(get_db)
 ):
-    # Check for duplicate pending request
+    # 1. Validate role_id is 2 or 3 only
+    if data.requested_role_id not in (2, 3):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Invalid role requested. Only Inspector (2) or Authority (3) roles can be requested.'
+        )
+
+    # 2. Check if email already exists in users table
+    user_exists = execute_query(
+        conn,
+        "SELECT id_user FROM users WHERE email = %s LIMIT 1",
+        (data.email,)
+    )
+    if user_exists:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists."
+        )
+
+    # 3. Check for duplicate pending request
     existing = execute_query(
         conn,
         '''SELECT id FROM access_requests
@@ -30,49 +51,52 @@ async def submit_request(
             detail='A pending request for this email already exists.'
         )
 
+    # 4. INSERT into access_requests
     req_id = execute_write(
         conn,
         '''INSERT INTO access_requests
-           (full_name, email, organization, role, reason, status)
+           (full_name, email, organization, requested_role_id, reason, status)
            VALUES (%s, %s, %s, %s, %s, 'pending')''',
         (data.full_name, data.email, data.organization,
-         data.role, data.reason)
+         data.requested_role_id, data.reason)
     )
 
-    # Notify all admins about the new access request
-    admins = execute_query(conn, "SELECT id_user FROM users WHERE role_id = (SELECT role_id FROM roles WHERE role_name = 'admin')")
-    for admin in admins:
-        execute_write(conn, """
-            INSERT INTO notifications (recipient_id, message, severity, monument_id)
-            VALUES (%s, %s, 'info', NULL)
-        """, (admin['id_user'], f"New system access request from {data.full_name} ({data.organization}) pending review."))
+    # 5. INSERT into audit_logs
+    execute_write(
+        conn,
+        '''INSERT INTO audit_logs (action, target_table, target_id, details)
+           VALUES ('ACCESS_REQUEST_SUBMITTED', 'access_requests', %s, %s)''',
+        (req_id, f"Request from {data.email} for role_id {data.requested_role_id}")
+    )
 
     return {
-        'message':    'Request submitted. Admin will review within 48 hours.',
+        'message':    'Request submitted successfully. You will receive an email when reviewed.',
         'request_id': req_id,
     }
 
 
 @router.get('/')
 async def list_requests(
-    filter_status: Optional[str] = None,
+    status: Optional[str] = None,
     conn           = Depends(get_db),
     _admin         = Depends(require_admin)
 ):
     base_query = """
         SELECT
           ar.*,
+          r.role_name,
           u.full_name AS reviewed_by_name
         FROM access_requests ar
+        JOIN roles r ON ar.requested_role_id = r.role_id
         LEFT JOIN users u ON ar.reviewed_by_id = u.id_user
     """
     valid_statuses = ('pending', 'approved', 'rejected')
 
-    if filter_status and filter_status in valid_statuses:
+    if status and status in valid_statuses:
         rows = execute_query(
             conn,
             base_query + ' WHERE ar.status = %s ORDER BY ar.submitted_at DESC',
-            (filter_status,)
+            (status,)
         )
     else:
         rows = execute_query(
@@ -83,64 +107,112 @@ async def list_requests(
     return {'count': len(rows), 'results': rows}
 
 
-@router.get('/pending-count')
-async def pending_count(
-    conn   = Depends(get_db),
-    _admin = Depends(require_admin)
+@router.post('/{request_id}/approve')
+async def approve_request(
+    request_id:      int,
+    data:            ReviewRequest,
+    background_tasks: BackgroundTasks,
+    conn             = Depends(get_db),
+    current_admin    = Depends(require_admin)
 ):
-    rows = execute_query(
-        conn,
-        "SELECT COUNT(*) AS count FROM access_requests WHERE status = 'pending'"
-    )
-    return {'pending': rows[0]['count']}
-
-
-@router.patch('/{request_id}/review')
-async def review_request(
-    request_id:   int,
-    data:         ReviewRequest,
-    conn          = Depends(get_db),
-    current_admin = Depends(require_admin)
-):
+    # 1. Verify request is pending
     rows = execute_query(
         conn,
         'SELECT * FROM access_requests WHERE id = %s LIMIT 1',
         (request_id,)
     )
     if not rows:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Access request not found.'
-        )
-
+        raise HTTPException(status_code=404, detail="Request not found")
+    
     req = rows[0]
-
     if req['status'] != 'pending':
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail='This request has already been reviewed.'
-        )
+        raise HTTPException(status_code=400, detail="Request already reviewed")
 
+    # 2. Check email not already in users table
+    user_exists = execute_query(conn, "SELECT id_user FROM users WHERE email = %s LIMIT 1", (req['email'],))
+    if user_exists:
+        raise HTTPException(status_code=409, detail="An account with this email already exists.")
+
+    # 3. Generate secure token
+    token = secrets.token_urlsafe(32)
+    expiry = datetime.now(timezone.utc) + timedelta(hours=48)
+
+    # 4. Create placeholder user account
+    # placeholders: full_name(%s), email(%s), password_hash(''), role_id(%s), organization(%s), completion_token(%s), completion_token_expiry(%s), is_active(FALSE)
+    # count: 6 placeholders
+    execute_write(
+        conn,
+        '''INSERT INTO users (full_name, email, password_hash, role_id, organization, completion_token, completion_token_expiry, is_active)
+           VALUES (%s, %s, '', %s, %s, %s, %s, FALSE)''',
+        (req['full_name'], req['email'], req['requested_role_id'], req['organization'], token, expiry)
+    )
+
+    # 5. UPDATE access_requests
+    review_note = data.review_note or ''
     execute_write(
         conn,
         '''UPDATE access_requests
-           SET status         = %s,
-               review_note    = %s,
-               reviewed_at    = %s,
-               reviewed_by_id = %s
+           SET status = 'approved', reviewed_by_id = %s, reviewed_at = %s, review_note = %s
            WHERE id = %s''',
-        (
-            data.status,
-            data.review_note or '',
-            datetime.now(timezone.utc),
-            current_admin['id'],
-            request_id,
-        )
+        (current_admin['id'], datetime.now(timezone.utc), review_note, request_id)
     )
 
-    updated = execute_query(
+    # 6. Notify user via email (Background)
+    background_tasks.add_task(send_approval_email, req['email'], req['full_name'], token)
+
+    # 7. Log to audit_logs
+    execute_write(
+        conn,
+        "INSERT INTO audit_logs (action, details) VALUES ('ACCESS_REQUEST_APPROVED', %s)",
+        (f"Approved by admin {current_admin['id']} for {req['email']}",)
+    )
+
+    return {"message": "Request approved and email sent."}
+
+
+@router.post('/{request_id}/reject')
+async def reject_request(
+    request_id:      int,
+    data:            ReviewRequest,
+    background_tasks: BackgroundTasks,
+    conn             = Depends(get_db),
+    current_admin    = Depends(require_admin)
+):
+    # 1. Verify request is pending
+    rows = execute_query(
         conn,
         'SELECT * FROM access_requests WHERE id = %s LIMIT 1',
         (request_id,)
     )
-    return updated[0]
+    if not rows:
+        raise HTTPException(status_code=404, detail="Request not found")
+    
+    req = rows[0]
+    if req['status'] != 'pending':
+        raise HTTPException(status_code=400, detail="Request already reviewed")
+
+    # 2. UPDATE access_requests
+    # Force check for review_note on rejection since Pydantic validator might be skipped if status is omitted in body
+    review_note = data.review_note
+    if not review_note or not review_note.strip():
+        raise HTTPException(status_code=400, detail="Review note is required when rejecting a request")
+
+    execute_write(
+        conn,
+        '''UPDATE access_requests
+           SET status = 'rejected', reviewed_by_id = %s, reviewed_at = %s, review_note = %s
+           WHERE id = %s''',
+        (current_admin['id'], datetime.now(timezone.utc), review_note, request_id)
+    )
+
+    # 3. Notify user via email (Background)
+    background_tasks.add_task(send_rejection_email, req['email'], req['full_name'], data.review_note)
+
+    # 4. Log to audit_logs
+    execute_write(
+        conn,
+        "INSERT INTO audit_logs (action, details) VALUES ('ACCESS_REQUEST_REJECTED', %s)",
+        (f"Rejected by admin {current_admin['id']}. Reason: {data.review_note}",)
+    )
+
+    return {"message": "Request rejected and user notified."}
