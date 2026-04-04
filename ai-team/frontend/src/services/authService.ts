@@ -1,13 +1,14 @@
 const API_BASE = import.meta.env.VITE_API_URL
-               ?? 'http://localhost:8000'
+  ?? 'http://localhost:8000'
 
 export interface AuthUser {
-  id:           number
-  email:        string
-  full_name:    string
-  role:         'admin' | 'inspector' | 'authority'
+  id: number
+  email: string
+  full_name: string
+  phone: string
+  role: 'admin' | 'inspector' | 'authority'
   organization: string
-  is_active:    boolean
+  is_active: boolean
 }
 
 export class ApiError extends Error {
@@ -26,9 +27,9 @@ export class ApiError extends Error {
 // on second 401 → dispatches session-expired event
 // ────────────────────────────────────────────────
 export const apiFetch = async (
-  path:    string,
+  path: string,
   options: RequestInit = {},
-  _retry:  boolean     = true
+  _retry: boolean = true
 ): Promise<Response> => {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -103,13 +104,27 @@ export const authService = {
   },
 
   submitAccessRequest: async (payload: {
-    full_name:    string
-    email:        string
+    full_name: string
+    email: string
+    phone: string
     organization: string
-    role:         string
-    reason:       string
+    requested_role_id: number
+    reason: string
   }): Promise<{ message: string; request_id: number }> => {
     const res = await apiFetch('/api/access-requests/', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    return handle(res)
+  },
+
+  verifyCompletionToken: async (token: string): Promise<{ valid: boolean; full_name: string; email: string; role: string }> => {
+    const res = await apiFetch(`/api/auth/verify-token/?token=${token}`)
+    return handle(res)
+  },
+
+  completeAccount: async (payload: { token: string; password: string }): Promise<{ message: string }> => {
+    const res = await apiFetch('/api/auth/complete-account/', {
       method: 'POST',
       body: JSON.stringify(payload),
     })
