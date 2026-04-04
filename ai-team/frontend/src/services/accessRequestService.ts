@@ -1,87 +1,68 @@
-export interface AccessRequest {
-  id: string;
-  fullName: string;
-  email: string;
-  organization: string;
-  role: 'inspector' | 'authority';
-  reason: string;
-  status: 'pending' | 'approved' | 'rejected';
-  submittedAt: string;
-  reviewedAt?: string;
-  reviewNote?: string;
-}
+import { apiFetch } from './authService';
 
-const mockRequests: AccessRequest[] = [
-  {
-    id: 'req-001',
-    fullName: 'Youssef Ait Brahim',
-    email: 'y.aitbrahim@heritage-souss.ma',
-    organization: 'Direction Régionale de la Culture',
-    role: 'authority',
-    reason:
-      'Need access to monitor inspection reports for the northern rampart zone assigned to our department.',
-    status: 'pending',
-    submittedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-  },
-  {
-    id: 'req-002',
-    fullName: 'Fatima Zahra Moussaoui',
-    email: 'fz.moussaoui@inspectionma.com',
-    organization: 'Bureau Technique Taroudant',
-    role: 'inspector',
-    reason:
-      'Assigned to document structural cracks in Bab Zorgane and surrounding wall sections as part of a university research project.',
-    status: 'pending',
-    submittedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-  },
-];
-
-export const accessRequestService = {
-  submitRequest: async (
-    data: Omit<AccessRequest, 'id' | 'status' | 'submittedAt'>,
-  ): Promise<AccessRequest> => {
-    await new Promise((res) => setTimeout(res, 1400));
-    const newRequest: AccessRequest = {
-      ...data,
-      id: `req-${Date.now()}`,
-      status: 'pending',
-      submittedAt: new Date().toISOString(),
-    };
-    mockRequests.push(newRequest);
-    return newRequest;
-  },
-
-  getAllRequests: async (): Promise<AccessRequest[]> => {
-    await new Promise((res) => setTimeout(res, 600));
-    return [...mockRequests].sort(
-      (a, b) =>
-        new Date(b.submittedAt).getTime() -
-        new Date(a.submittedAt).getTime(),
-    );
-  },
-
-  updateRequestStatus: async (
-    id: string,
-    status: 'approved' | 'rejected',
-    reviewNote?: string,
-  ): Promise<AccessRequest> => {
-    await new Promise((res) => setTimeout(res, 500));
-    const req = mockRequests.find((r) => r.id === id);
-    if (!req) {
-      throw new Error('Request not found');
-    }
-    req.status = status;
-    req.reviewedAt = new Date().toISOString();
-    req.reviewNote = reviewNote;
-    return { ...req };
-  },
-
-  getPendingCount: async (): Promise<number> => {
-    await new Promise((res) => setTimeout(res, 200));
-    return mockRequests.filter((r) => r.status === 'pending').length;
-  },
+const handle = async <T>(res: Response): Promise<T> => {
+  let data: any = {};
+  try { data = await res.json(); } catch { /* empty body */ }
+  if (!res.ok) {
+    throw new Error(data?.detail ?? 'An unexpected error occurred.');
+  }
+  return data as T;
 };
 
-// TODO: replace mock implementations with real API calls when backend is ready.
+export interface AccessRequest {
+  id:                number;
+  full_name:         string;
+  email:             string;
+  organization:      string;
+  requested_role_id: number;
+  role_name?:        string;
+  reason:            string;
+  status:            'pending' | 'approved' | 'rejected';
+  submitted_at:      string;
+  reviewed_at?:      string;
+  review_note?:      string;
+  reviewed_by_name?: string;
+}
+
+export interface AccessRequestPayload {
+  full_name:         string;
+  email:             string;
+  organization:      string;
+  requested_role_id: number;
+  reason:            string;
+}
+
+export const accessRequestService = {
+  submitRequest: async (data: AccessRequestPayload): Promise<any> => {
+    const res = await apiFetch('/api/access-requests/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    return handle(res);
+  },
+
+  getAllRequests: async (status?: string): Promise<AccessRequest[]> => {
+    const path = status ? `/api/access-requests/?status=${status}` : '/api/access-requests/';
+    const res = await apiFetch(path);
+    const data = await handle<{ results: AccessRequest[] }>(res);
+    return data.results;
+  },
+
+  approveRequest: async (id: number, reviewNote?: string): Promise<void> => {
+    const res = await apiFetch(`/api/access-requests/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'approved', review_note: reviewNote }),
+    });
+    await handle(res);
+  },
+
+  rejectRequest: async (id: number, reviewNote: string): Promise<void> => {
+    const res = await apiFetch(`/api/access-requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'rejected', review_note: reviewNote }),
+    });
+    await handle(res);
+  },
+};
 
 
