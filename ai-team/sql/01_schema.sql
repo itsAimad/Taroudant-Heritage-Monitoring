@@ -55,7 +55,13 @@ ALTER TABLE users
     COMMENT 'Updated on every successful login',
   ADD COLUMN IF NOT EXISTS organization
     VARCHAR(200) DEFAULT ''
-    COMMENT 'Department or office the user belongs to';
+    COMMENT 'Department or office the user belongs to',
+  ADD COLUMN IF NOT EXISTS completion_token
+    VARCHAR(255) NULL
+    COMMENT 'Single-use token for account completion set by admin',
+  ADD COLUMN IF NOT EXISTS completion_token_expiry
+    DATETIME NULL
+    COMMENT 'Expiry timestamp for the completion token';
 
 -- Index on foreign key for faster joins when filtering users by role
 CREATE INDEX IF NOT EXISTS idx_users_role_id ON users (role_id);
@@ -86,6 +92,8 @@ CREATE TABLE IF NOT EXISTS monuments (
   construction_year INT,
   category_id       INT,
   description       TEXT,
+  photo_blob        LONGBLOB DEFAULT NULL,
+  photo_mime_type   VARCHAR(50) DEFAULT 'image/jpeg',
   status            ENUM('active','under_restoration','closed','critical') DEFAULT 'active',
 
   -- Category is optional; if the category is deleted we allow the monument to remain without it
@@ -132,6 +140,37 @@ CREATE INDEX IF NOT EXISTS idx_inspections_inspector_id ON inspections (inspecto
 
 
 -- ================================================
+-- Table: inspector_assignments
+-- Purpose: Track inspections assigned by admins to specific inspectors
+-- ================================================
+CREATE TABLE IF NOT EXISTS inspector_assignments (
+  assignment_id INT AUTO_INCREMENT PRIMARY KEY,
+  monument_id   INT NOT NULL,
+  inspector_id  INT NOT NULL,
+  assigned_by   INT NOT NULL,
+  notes         TEXT,
+  due_date      DATE,
+  status        ENUM('pending', 'in_progress', 'completed', 'cancelled') DEFAULT 'pending',
+  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_assignments_monument
+    FOREIGN KEY (monument_id)
+    REFERENCES monuments (monument_id)
+    ON DELETE RESTRICT,
+    
+  CONSTRAINT fk_assignments_inspector
+    FOREIGN KEY (inspector_id)
+    REFERENCES users (id_user)
+    ON DELETE RESTRICT,
+
+  CONSTRAINT fk_assignments_admin
+    FOREIGN KEY (assigned_by)
+    REFERENCES users (id_user)
+    ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ================================================
 -- Table: cracks
 -- Purpose: Store fine-grained crack observations linked to an inspection
 -- ================================================
@@ -142,6 +181,8 @@ CREATE TABLE IF NOT EXISTS cracks (
   severity             ENUM('minor','moderate','major','critical') NOT NULL,
   length_cm            DECIMAL(8,2),
   photo_url            VARCHAR(500),
+  photo_blob           LONGBLOB,
+  photo_mime_type      VARCHAR(50) DEFAULT 'image/jpeg',
   detected_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
   -- Each crack must belong to a valid inspection; restriction avoids losing diagnostic history
@@ -234,14 +275,17 @@ CREATE TABLE IF NOT EXISTS reports (
   monument_id   INT NOT NULL,
   inspection_id INT NOT NULL,
   generated_by  INT NOT NULL,
+  validated_by  INT,
   title         VARCHAR(255) NOT NULL,
   file_path     VARCHAR(500),
   -- Encrypted report content stored inside the database for secure access
   encrypted_content LONGBLOB,
   risk_level    ENUM('low','medium','high','critical'),
   total_score   INT,
-  status        ENUM('draft','final','archived') DEFAULT 'draft',
+  status        ENUM('draft', 'final', 'validated', 'disputed', 'archived') DEFAULT 'draft',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  validated_at  TIMESTAMP NULL,
+  validation_note TEXT,
 
   -- Reports are always tied to a specific monument for long-term tracking
   CONSTRAINT fk_reports_monument
@@ -259,8 +303,15 @@ CREATE TABLE IF NOT EXISTS reports (
   CONSTRAINT fk_reports_generated_by
     FOREIGN KEY (generated_by)
     REFERENCES users (id_user)
-    ON DELETE RESTRICT
+    ON DELETE RESTRICT,
+
+  -- Validated-by user for authority reviews
+  CONSTRAINT fk_reports_validated_by
+    FOREIGN KEY (validated_by)
+    REFERENCES users (id_user)
+    ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 
 -- Indexes to accelerate search by monument, inspection, and author
 CREATE INDEX IF NOT EXISTS idx_reports_monument_id ON reports (monument_id);
