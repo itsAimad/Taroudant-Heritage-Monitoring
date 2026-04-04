@@ -95,7 +95,7 @@ const MapView = ({ embedded = false }: MapViewProps = {}) => {
 
   useEffect(() => {
     monumentService.getAll().then(data => {
-      setMonuments(data)
+      setMonuments(data.results || [])
       setLoading(false)
     }).catch(() => {
       setLoading(false)
