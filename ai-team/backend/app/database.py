@@ -15,6 +15,7 @@ _pool = MySQLConnectionPool(
     password     = settings.DB_PASSWORD,
     charset      = 'utf8mb4',
     collation    = 'utf8mb4_unicode_ci',
+    use_unicode  = True,
     autocommit   = False,
     time_zone    = '+00:00',
 )
