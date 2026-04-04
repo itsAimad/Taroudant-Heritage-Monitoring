@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     COOKIE_HTTPONLY:        bool  = True
     COOKIE_PATH:            str   = '/'
 
+    # SMTP Configuration
+    SMTP_HOST:              str   = 'smtp.gmail.com'
+    SMTP_PORT:              int   = 587
+    SMTP_USER:              str
+    SMTP_PASSWORD:          str
+    SMTP_FROM:              str   = 'noreply@heritage-taroudant.ma'
+
     class Config:
         env_file = '.env'
         extra    = 'ignore'
