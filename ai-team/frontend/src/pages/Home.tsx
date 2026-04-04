@@ -518,7 +518,19 @@ const Home = () => {
 
                     <div className="mt-5 flex items-center gap-2 text-[11px] text-sand/30">
                       <Calendar className="h-3.5 w-3.5" />
-                      <span>Last inspection: {m.last_inspection}</span>
+                      <span>
+                        Last inspection:{' '}
+                        {m.last_inspection_display
+                          ?? (m.last_inspection
+                            ? new Date(m.last_inspection).toLocaleDateString('en-GB', {
+                                weekday: 'long',
+                                day: '2-digit',
+                                month: 'long',
+                                year: 'numeric',
+                              })
+                            : null)
+                          ?? '—'}
+                      </span>
                     </div>
 
                     <div className="mt-5 border-t border-sand/5 pt-4">
