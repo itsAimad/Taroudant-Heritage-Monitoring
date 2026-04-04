@@ -32,108 +32,108 @@ INSERT INTO monuments
   (name, location, city, latitude, longitude, construction_year,
    category_id, description, status)
 VALUES
-  -- 1. Remparts (the iconic 7.5 km Saadian walls)
-  ('Remparts de Taroudant',
-   'Enceinte de la médina', 'Taroudant',
-   30.4702, -8.8776, 1528,
-   1,
-   'Les remparts saadiens s''étendent sur 7,5 km autour de la médina. Parmi les mieux conservés du Maroc, ils atteignent 8 m de hauteur et comprennent cinq portes et plusieurs bastions défensifs.',
+  -- 1. Bab Bizamaren
+  ('Bab Bizamaren',
+   'Entrée ouest de la médina', 'Taroudant',
+   30.479061, -8.882290, 1528,
+   2,
+   'Une entrée historique de la médina, faisant partie des vastes remparts saadiens du XVIe siècle, reflétant le style de construction traditionnel en terre et en chaux de Taroudant.',
    'active'),
 
-  -- 2. Bab El Khemis (north gate, busiest)
-  ('Bab El Khemis',
+  -- 2. Bab Lkhemiss
+  ('Bab Lkhemiss',
    'Entrée nord de la médina', 'Taroudant',
-   30.4739, -8.8754, 1528,
+   30.478538, -8.874374, 1528,
    2,
-   'La Porte du Jeudi, principale entrée nord de la médina. Symbole historique utilisé comme point de passage commercial depuis le XVIe siècle. Décorée de motifs géométriques saadiens.',
+   'Positionnée sur le côté nord, cette porte est historiquement liée au marché traditionnel du jeudi (Souk el-Khemis) et à un cimetière pré-saadien.',
    'active'),
 
-  -- 3. Bab Zorgane (east gate)
+  -- 3. Bab Zorgane
   ('Bab Zorgane',
-   'Entrée est de la médina', 'Taroudant',
-   30.4698, -8.8701, 1528,
+   'Entrée sud-est de la médina', 'Taroudant',
+   30.465139, -8.876030, 1528,
    2,
-   'Porte orientale donnant accès aux routes caravanières du Souss et de l''Anti-Atlas. Architecture typique saadienne avec arc en fer à cheval et motifs en stuc.',
+   'Située sur le côté sud, son nom fait référence à la présence historique de moulins (broyeurs). Elle reste un centre de transit vital pour la ville.',
    'active'),
 
-  -- 4. Bab Sedra (south gate)
+  -- 4. Bab Sedra
   ('Bab Sedra',
-   'Entrée sud de la médina', 'Taroudant',
-   30.4665, -8.8763, 1528,
+   'Entrée sud-ouest de la médina', 'Taroudant',
+   30.4725734,-8.8749343, 1528,
    2,
-   'Porte méridionale de la médina, ouvrant vers les jardins et les quartiers artisanaux. Connue pour sa double arche caractéristique et ses peintures murales géométriques.',
+   'Étroitement liée aux fortifications de la Kasbah, elle reflète l''ingénierie militaire du XVIe siècle avec ses murs épais et son positionnement stratégique.',
    'active'),
 
-  -- 5. Bab El Kasbah (kasbah gate)
+  -- 5. Bab El Kasbah
   ('Bab El Kasbah',
-   'Accès à la Kasbah, sud-ouest de la médina', 'Taroudant',
-   30.4680, -8.8795, 1571,
+   'Accès à la Kasbah', 'Taroudant',
+   30.471894, -8.873687, 1571,
    2,
-   'Entrée principale de la Kasbah saadienne. Monumentale arche flanquée de deux tours, avec décoration en zellij et calligraphie arabe en relief. Point stratégique de défense de la cité.',
+   'La porte principale du quartier administratif de la Kasbah, qui abritait historiquement la résidence du sultan et les quartiers militaires.',
    'active'),
 
-  -- 6. Grande Mosquée
-  ('Grande Mosquée de Taroudant',
-   'Centre de la médina', 'Taroudant',
-   30.4715, -8.8745, 1363,
-   3,
-   'Plus ancienne mosquée de Taroudant, datant de la période mérinide. Minaret octogonal orné de faïences vertes. Centre spirituel et culturel de la ville depuis six siècles.',
+  -- 6. Bab Lblalia
+  ('Bab Lblalia',
+   'Quartier sud de la médina', 'Taroudant',
+   30.4692058, -8.8727498, 1528,
+   2,
+   'Une porte secondaire servant les quartiers résidentiels traditionnels, caractérisée par sa structure solide en pisé et ses murs défensifs.',
    'active'),
 
-  -- 7. Kasbah de Taroudant
-  ('Kasbah de Taroudant',
-   'Quartier Kasbah, sud-ouest', 'Taroudant',
-   30.4685, -8.8802, 1571,
-   4,
-   'Ancienne résidence des gouverneurs saadiens. Complexe en pisé caractéristique de l''architecture de terre marocaine, avec douves, tours de guet et jardins intérieurs en partie préservés.',
+  -- 7. Bab Selsla
+  ('Bab Selsla',
+   'Entrée principale de la Kasbah', 'Taroudant',
+   30.472026, -8.873555, 1528,
+   2,
+   'Traditionnellement l''entrée royale, cette porte à triple arche est l''une des entrées les plus majestueuses de la ville, souvent associée aux arrivées diplomatiques.',
    'active'),
 
-  -- 8. Place Assarag
-  ('Place Assarag',
-   'Centre-ville', 'Taroudant',
-   30.4720, -8.8769, 1850,
-   5,
-   'Cœur social et commercial de Taroudant. Entourée de cafés traditionnels et d''orangers centenaires. Lieu de rassemblement quotidien et de marchés hebdomadaires.',
+  -- 8. Bab Lahjer
+  ('Bab Lahjer',
+   'Quartier central est', 'Taroudant',
+   30.475147, -8.872770, 1528,
+   2,
+   'Connue sous le nom de "Porte de Pierre", elle sert de point d''entrée robuste dans les murs saadiens, préservant l''esthétique des fortifications médiévales de la région du Souss.',
    'active'),
 
-  -- 9. Place An-Nasr (Place Talmokta)
-  ('Place An-Nasr',
-   'Quartier nord de la médina', 'Taroudant',
-   30.4724, -8.8738, 1900,
-   5,
-   'Deuxième grande place de la médina, également connue sous le nom de Place Talmokta. Point névralgique du quartier artisanal avec ses ateliers de cuivre et de cuir.',
+  -- 9. Bab Benyara
+  ('Bab Benyara',
+   'Entrée sud', 'Taroudant',
+   30.4651867, -8.8784939, 1528,
+   2,
+   'Une porte stratégiquement située qui a évolué pour devenir un point majeur pour les transports modernes, reliant l''ancienne médina aux routes régionales.',
    'active'),
 
-  -- 10. Borj El Oued (water tower bastion)
-  ('Borj El Oued',
-   'Angle nord-est des remparts', 'Taroudant',
-   30.4745, -8.8711, 1528,
-   7,
-   'Bastion défensif à l''angle nord-est des remparts, dominant le lit de l''oued asséché. Bâti en pisé sur socle de pierre taillée, il offre une vue panoramique sur la plaine du Souss.',
+  -- 10. Bab Derb Laafou
+  ('Bab Derb Laafou',
+   'Nord de la médina', 'Taroudant',
+   30.476669, -8.873233, 1528,
+   2,
+   'Une porte associée à l''"Allee du Pardon", servant historiquement de point d''entrée paisible vers le cœur spirituel de la ville.',
    'active'),
 
-  -- 11. Borj Sud (south bastion)
-  ('Borj Sud',
-   'Angle sud des remparts', 'Taroudant',
-   30.4658, -8.8782, 1528,
-   7,
-   'Bastion méridional des remparts, le plus imposant des tours de défense. Sa structure à talus et mâchicoulis témoigne des techniques militaires saadiennes avancées.',
+  -- 11. Bab Oulad Bounouna
+  ('Bab Oulad Bounouna',
+   'Nord-ouest de la médina', 'Taroudant',
+   30.472695, -8.874848, 1528,
+   2,
+   'Nommée d''après les familles andalouses qui se sont installées à Taroudant au XVIe siècle, elle présente un design classique d''"entrée coudée" défensive.',
+   'active'),
+
+  -- 12. Bab Agafay
+  ('Bab Agafay',
+   'Sud-ouest de la médina', 'Taroudant',
+  30.473045, -8.888191, 1528,
+   2,
+   'Une porte périphérique offrant un accès aux jardins du sud et aux terres agricoles qui ont soutenu Taroudant pendant des siècles.',
    'critical'),
 
-  -- 12. Souk des Bijoutiers
-  ('Souk des Bijoutiers',
-   'Médina, rue des orfèvres', 'Taroudant',
-   30.4718, -8.8756, 1750,
-   8,
-   'Quartier des artisans joailliers, célèbre pour la filigrane en argent berbère. Couvert de voûtes en berceau datant du XVIIIe siècle, avec boutiques encastrées dans la maçonnerie médiévale.',
-   'active'),
-
-  -- 13. Fontaine Ben Youssef
-  ('Fontaine Ben Youssef',
-   'Médina, quartier central', 'Taroudant',
-   30.4716, -8.8762, 1820,
-   6,
-   'Fontaine publique en marbre et zellij, alimentée par le réseau de séguias traditionnelles. Composée d''un bassin central, de quatre robinets en laiton et d''une vasque ornementale en céramique de Fès.',
+  -- 13. Bab Tafelagt
+  ('Bab Tafelagt',
+   'Entrée nord-est', 'Taroudant',
+   30.479681, -8.877632, 1528,
+   2,
+   'Un point d''accès nord qui relie la ville aux routes menant vers les montagnes du Haut Atlas, essentiel pour le commerce et les caravanes de montagne.',
    'active');
 
 -- --------------------------------------------------
