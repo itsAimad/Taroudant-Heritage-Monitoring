@@ -8,3 +8,5 @@ python-decouple==3.8
 python-multipart==0.0.9
 pydantic[email]==2.6.1
 pydantic-settings==2.2.1
+fastapi-mail==1.4.1
+fpdf2==2.7.9
