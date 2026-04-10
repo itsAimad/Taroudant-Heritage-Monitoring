@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ const Login = () => {
     </div>
   )
 
-  if (isAuthenticated) { navigate('/dashboard'); return null; }
+  if (isAuthenticated) { return <Navigate to="/dashboard" replace />; }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

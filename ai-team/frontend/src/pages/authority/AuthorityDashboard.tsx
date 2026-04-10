@@ -4,10 +4,11 @@ import { notificationService, Notification } from '../../services/notificationSe
 import { inspectionService } from '../../services/inspectionService'
 import { useAuth } from '../../context/AuthContext'
 import PageTransition from '../../components/ui/PageTransition'
-import { ShieldAlert, Bell, FileText, Check, AlertTriangle, ChevronRight, Eye } from 'lucide-react'
+import { ShieldAlert, Bell, FileText, Check, AlertTriangle, ChevronRight, Eye, Search } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import { motion } from 'framer-motion'
 import CountUp from 'react-countup'
 import {
@@ -20,8 +21,10 @@ export default function AuthorityDashboard() {
   const navigate = useNavigate()
   const [data, setData] = useState<any>(null)
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [acknowledgedIds, setAcknowledgedIds] = useState<Set<number>>(new Set())
+  const [reportFilter, setReportFilter] = useState('')
 
   useEffect(() => {
     fetchData()
@@ -29,12 +32,14 @@ export default function AuthorityDashboard() {
 
   const fetchData = async () => {
     try {
-      const [analyticsData, notifsData] = await Promise.all([
+      const [analyticsData, notifsData, reportsData] = await Promise.all([
         analyticsService.get(),
-        notificationService.getAll()
+        notificationService.getAll(),
+        inspectionService.getReports()
       ])
       setData(analyticsData)
       setNotifications(notifsData.results || [])
+      setReports(reportsData.results || [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -88,6 +93,12 @@ export default function AuthorityDashboard() {
   }))
 
   const unreadNotifs = notifications.filter(n => !n.is_read)
+
+  const filteredReports = reports.filter(r =>
+    (r.generated_by_name || '').toLowerCase().includes(reportFilter.toLowerCase()) ||
+    (r.monument_name || '').toLowerCase().includes(reportFilter.toLowerCase()) ||
+    (r.title || '').toLowerCase().includes(reportFilter.toLowerCase())
+  )
 
   return (
     <PageTransition>
@@ -212,7 +223,7 @@ export default function AuthorityDashboard() {
                       <div className="text-right flex items-center gap-6">
                         <div>
                           <div className={`text-xs font-bold uppercase tracking-wide mb-1 ${m.risk_level === 'critical' ? 'text-critical' :
-                              m.risk_level === 'high' ? 'text-warning' : 'text-yellow-500'
+                            m.risk_level === 'high' ? 'text-warning' : 'text-yellow-500'
                             }`}>{m.risk_level}</div>
                           <div className="text-xl font-heading text-foreground">{m.total_score}<span className="text-xs text-muted-foreground">/100</span></div>
                         </div>
@@ -287,8 +298,56 @@ export default function AuthorityDashboard() {
                 </div>
               </div>
             </motion.div>
-          </div>
 
+            {/* RECENT REPORTS */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }} className="bg-card border border-border rounded-lg overflow-hidden flex flex-col lg:col-span-2 mt-2">
+              <div className="p-4 px-6 border-b border-border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-muted/30">
+                <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                  Recent Reports
+                </h3>
+                <div className="relative w-full sm:max-w-xs">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search by inspector or monument..."
+                    className="pl-8 h-9 text-xs"
+                    value={reportFilter}
+                    onChange={(e) => setReportFilter(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-auto max-h-[400px]">
+                <div className="divide-y divide-border">
+                  {filteredReports.map((r) => (
+                    <div key={r.report_id} className="p-5 hover:bg-muted/30 transition-colors">
+                      <div className="flex justify-between items-center gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FileText className="w-4 h-4 text-primary" />
+                            <span className="text-xs tracking-wider text-muted-foreground">{new Date(r.created_at).toLocaleString()}</span>
+                            <Badge variant="outline" className="text-[10px] ml-2">{r.status}</Badge>
+                          </div>
+                          <p className="text-sm text-foreground font-medium mb-1">{r.monument_name}</p>
+                          <p className="text-xs text-muted-foreground mb-1">{r.title}</p>
+                          <p className="text-xs text-muted-foreground/80 font-medium">Inspector: {r.generated_by_name}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="default"
+                            onClick={() => navigate(`/inspection/${r.inspection_id}`)}
+                            className="bg-copper-light text-charcoal hover:bg-copper-light/90">
+                            <Eye className="w-4 h-4 mr-1" /> View Details
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredReports.length === 0 && (
+                    <div className="p-8 text-center text-muted-foreground">No reports found.</div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
         </div>
       </div>
     </PageTransition>
