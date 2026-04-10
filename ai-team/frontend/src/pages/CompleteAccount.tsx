@@ -36,17 +36,25 @@ const CompleteAccount = () => {
       });
   }, [token]);
 
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasDigit = /\d/.test(password);
+  const hasSpecial = /[@$!%*?&]/.test(password);
+  const isValidLength = password.length >= 8;
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
+
+  const isPasswordValid = isValidLength && hasUppercase && hasDigit && hasSpecial;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
 
-    if (password.length < 8) {
-      setErrorMessage('Password must be at least 8 characters long.');
+    if (!isPasswordValid) {
+      setErrorMessage('Password does not meet all requirements.');
       setStatus('error');
       return;
     }
 
-    if (password !== confirmPassword) {
+    if (!passwordsMatch) {
       setErrorMessage('Passwords do not match.');
       setStatus('error');
       return;
@@ -55,10 +63,21 @@ const CompleteAccount = () => {
     setStatus('submitting');
     try {
       await authService.completeAccount({ token, password });
+      try {
+        await authService.logout();
+      } catch (e) {
+        // Ignore logout errors
+      }
       setStatus('success');
     } catch (err: any) {
       setStatus('error');
-      setErrorMessage(err.message || 'Failed to complete account setup.');
+      
+      // Handle FastAPI 422 validation errors gracefully
+      let errMsg = err.message || 'Failed to complete account setup.';
+      if (Array.isArray(err.detail)) {
+        errMsg = err.detail[0]?.msg || 'Invalid input provided.';
+      }
+      setErrorMessage(errMsg);
     }
   };
 
@@ -127,13 +146,13 @@ const CompleteAccount = () => {
             <h1 className="font-heading text-3xl text-sand-light mb-4">Setup Complete</h1>
             <p className="text-sand/60 text-sm mb-10 leading-relaxed">
               Welcome, <span className="text-sand-light font-medium">{userData?.full_name}</span>! 
-              Your account has been successfully activated. You can now log in to the system.
+              Your account has been successfully activated. Please return to the home page to start.
             </p>
             <Link 
-              to="/login"
+              to="/"
               className="group flex items-center justify-center gap-3 w-full py-4 bg-copper-light text-charcoal rounded-xl font-bold tracking-wider hover:bg-copper-light/90 transition-all active:scale-[0.98]"
             >
-              LOG IN TO DASHBOARD <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              RETURN TO HOME PAGE <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>
         ) : (
@@ -200,12 +219,24 @@ const CompleteAccount = () => {
                 {/* Password Requirements */}
                 <div className="p-4 bg-black/20 rounded-xl space-y-2">
                   <div className="flex items-center gap-2 text-[10px] tracking-wide">
-                    <div className={`h-1.5 w-1.5 rounded-full ${password.length >= 8 ? 'bg-emerald-400' : 'bg-sand/20'}`} />
-                    <span className={password.length >= 8 ? 'text-emerald-400/80' : 'text-sand/40'}>Minimum 8 characters</span>
+                    <div className={`h-1.5 w-1.5 rounded-full ${isValidLength ? 'bg-emerald-400' : 'bg-sand/20'}`} />
+                    <span className={isValidLength ? 'text-emerald-400/80' : 'text-sand/40'}>Minimum 8 characters</span>
                   </div>
                   <div className="flex items-center gap-2 text-[10px] tracking-wide">
-                    <div className={`h-1.5 w-1.5 rounded-full ${password.length > 0 && password === confirmPassword ? 'bg-emerald-400' : 'bg-sand/20'}`} />
-                    <span className={password.length > 0 && password === confirmPassword ? 'text-emerald-400/80' : 'text-sand/40'}>Passwords match</span>
+                    <div className={`h-1.5 w-1.5 rounded-full ${hasUppercase ? 'bg-emerald-400' : 'bg-sand/20'}`} />
+                    <span className={hasUppercase ? 'text-emerald-400/80' : 'text-sand/40'}>One uppercase letter</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] tracking-wide">
+                    <div className={`h-1.5 w-1.5 rounded-full ${hasDigit ? 'bg-emerald-400' : 'bg-sand/20'}`} />
+                    <span className={hasDigit ? 'text-emerald-400/80' : 'text-sand/40'}>One number</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] tracking-wide">
+                    <div className={`h-1.5 w-1.5 rounded-full ${hasSpecial ? 'bg-emerald-400' : 'bg-sand/20'}`} />
+                    <span className={hasSpecial ? 'text-emerald-400/80' : 'text-sand/40'}>One special character (@$!%*?&)</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] tracking-wide">
+                    <div className={`h-1.5 w-1.5 rounded-full ${passwordsMatch ? 'bg-emerald-400' : 'bg-sand/20'}`} />
+                    <span className={passwordsMatch ? 'text-emerald-400/80' : 'text-sand/40'}>Passwords match</span>
                   </div>
                 </div>
 
