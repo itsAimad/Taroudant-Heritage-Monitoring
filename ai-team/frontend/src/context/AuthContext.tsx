@@ -23,7 +23,7 @@ const AuthContext = createContext<AuthContextType | null>(null)
 const ROLE_HOME: Record<NonNullable<AuthUser>['role'], string> = {
   admin: '/admin/users',
   inspector: '/dashboard',
-  authority: '/alerts',
+  authority: '/dashboard',
 }
 
 export const AuthProvider = ({
