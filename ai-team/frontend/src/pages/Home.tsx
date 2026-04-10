@@ -1036,12 +1036,12 @@ const Home = () => {
               </div>
 
               {/* Stat overlay */}
-              <div className="absolute bottom-4 left-4 right-4 md:left-auto md:right-auto md:bottom-6 md:left-1/2 md:-translate-x-1/2 z-[1001]">
-                <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-2 md:gap-4 bg-[#1a1208]/90 backdrop-blur-md border border-sand/10 rounded-xl p-2 md:p-3 shadow-xl">
+              <div className="absolute bottom-4 left-4 right-4 md:bottom-6 md:left-auto md:right-6 md:translate-x-0 z-[1001]">
+                <div className="flex flex-wrap md:flex-nowrap items-center justify-center md:justify-end gap-2 md:gap-3 bg-[#1a1208]/90 backdrop-blur-md border border-sand/10 rounded-xl p-2 md:p-2.5 shadow-xl">
                   {[{ label: "Sites monitored", val: "12+" }, { label: "Coverage of ramparts", val: "100%" }, { label: "Alert Updates", val: "Active" }].map(stat => (
-                    <div key={stat.label} className="bg-white/5 rounded-lg px-3 lg:px-4 py-2 flex flex-col items-center flex-1 md:flex-none">
+                    <div key={stat.label} className="bg-white/5 rounded-lg px-3 lg:px-4 py-2 flex flex-col items-center flex-1 md:flex-none min-w-[90px]">
                       <span className="text-sand-light font-heading text-lg leading-none mb-1">{stat.val}</span>
-                      <span className="text-sand/40 text-[9px] font-mono uppercase tracking-wider">{stat.label}</span>
+                      <span className="text-sand/40 text-[9px] font-mono uppercase tracking-wider whitespace-nowrap">{stat.label}</span>
                     </div>
                   ))}
                 </div>

@@ -297,10 +297,10 @@ const MapView = ({ embedded = false }: MapViewProps = {}) => {
                     <p className="mt-1 text-[10px] capitalize text-sand/30">{mon.type}</p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-xs font-mono font-medium ${riskCircleStyle[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
-                      {mon.vulnerability_score ?? 0}
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-full border-2 text-[10px] font-mono font-medium ${riskCircleStyle[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
+                      {mon.vulnerability_score ?? 0}%
                     </div>
-                    <span className={`text-[9px] uppercase tracking-wider ${riskTextColor[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
+                    <span className={`text-[9px] uppercase tracking-wider leading-none ${riskTextColor[mon.risk_level ?? getRiskLevel(mon.vulnerability_score)]}`}>
                       {mon.risk_level ?? getRiskLevel(mon.vulnerability_score)}
                     </span>
                   </div>
@@ -422,7 +422,7 @@ const MapView = ({ embedded = false }: MapViewProps = {}) => {
 
               <div className="mt-3 flex items-center gap-3">
                 <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 font-mono text-sm font-medium ${riskCircleStyle[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
-                  {selectedMonument.vulnerability_score ?? 0}
+                  {selectedMonument.vulnerability_score ?? 0}%
                 </div>
                 <div>
                   <p className={`text-sm font-medium capitalize ${riskTextColor[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
@@ -489,7 +489,7 @@ const MapView = ({ embedded = false }: MapViewProps = {}) => {
 
               <div className="mt-3 flex items-center gap-3">
                 <div className={`flex h-12 w-12 items-center justify-center rounded-full border-2 font-mono text-sm font-medium ${riskCircleStyle[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
-                  {selectedMonument.vulnerability_score ?? 0}
+                  {selectedMonument.vulnerability_score ?? 0}%
                 </div>
                 <div>
                   <p className={`text-sm font-medium capitalize ${riskTextColor[selectedMonument.risk_level ?? getRiskLevel(selectedMonument.vulnerability_score)]}`}>
