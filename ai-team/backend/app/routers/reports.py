@@ -74,7 +74,7 @@ async def list_reports(
     if current_user['role'] == 'inspector':
         rows = execute_query(conn, """
             SELECT
-              r.report_id, r.title, r.risk_level,
+              r.report_id, r.inspection_id, r.title, r.risk_level,
               r.total_score, r.status, r.created_at,
               m.name      AS monument_name,
               u.full_name AS generated_by_name
@@ -87,7 +87,7 @@ async def list_reports(
     else:
         rows = execute_query(conn, """
             SELECT
-              r.report_id, r.title, r.risk_level,
+              r.report_id, r.inspection_id, r.title, r.risk_level,
               r.total_score, r.status, r.created_at,
               r.validated_by, r.validated_at, r.validation_note,
               m.name      AS monument_name,
