@@ -19,7 +19,7 @@
 [![Status](https://www.arabamerica.com/wp-content/uploads/2022/02/Taroudant-Morocco-4-scaled-1.jpeg)](.)
 [![Database](https://img.shields.io/badge/Database-MySQL%203NF-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](.)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20+%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](.)
-[![Backend](https://img.shields.io/badge/Backend-Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](.)
+[![Backend](https://img.shields.io/badge/Backend-Python%20+%20FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](.)
 [![Security](https://img.shields.io/badge/Security-AES--256%20+%20RBAC-DC143C?style=for-the-badge&logo=shield&logoColor=white)](.)
 [![Academic](https://img.shields.io/badge/Type-Academic%20Project-8A2BE2?style=for-the-badge)](.)
 
@@ -82,8 +82,18 @@ This is an **academic comparative study**: the same system is built by two teams
 taroudant-heritage-shield/
 │
 ├── 🤖 ai-team/                    # Built with AI assistance (Claude + Cursor)
-│   ├── frontend/                  # React + Vite application
-│   ├── backend/                   # Node.js + Express API
+│   ├── frontend/                  # React + Vite (TypeScript)
+│   ├── backend/                   # Python + FastAPI + Uvicorn
+│   │   ├── app/
+│   │   │   ├── routers/           # 11 API routers (auth, monuments, etc.)
+│   │   │   ├── services/          # auth_service, email_service, user_service
+│   │   │   ├── models/            # Pydantic request/response models
+│   │   │   ├── config.py          # Settings (pydantic-settings, .env)
+│   │   │   ├── database.py        # MySQL connection pool
+│   │   │   └── dependencies.py    # JWT + RBAC deps
+│   │   ├── main.py                # FastAPI app + CORS + routers
+│   │   ├── run.py                 # Uvicorn entrypoint
+│   │   └── requirements.txt
 │   ├── sql/                       # MySQL schema, procedures, triggers
 │   └── documents/                 # Architecture docs & diagrams
 │
@@ -97,8 +107,8 @@ taroudant-heritage-shield/
 | Dimension | 🤖 AI Team | 👥 Traditional Team |
 |---|---|---|
 | **Methodology** | Claude + Cursor assisted | Manual planning & coding |
-| **Frontend** | React + Vite | HTML / CSS / Vanilla JS |
-| **Backend** | Node.js + Express | PHP / Node.js |
+| **Frontend** | React + Vite (TypeScript) | HTML / CSS / Vanilla JS |
+| **Backend** | Python + FastAPI + Uvicorn | PHP / Node.js |
 | **Database** | MySQL 3NF | MySQL 3NF |
 | **Development Speed** | Measured | Measured |
 | **Code Quality** | Evaluated | Evaluated |
@@ -119,11 +129,12 @@ graph TB
         AD[⚙️ Admin<br/>Control Panel]
     end
 
-    subgraph API["⚙️ Backend API — Node.js + Express"]
-        AUTH[🔐 JWT Auth<br/>Middleware]
+    subgraph API["⚙️ Backend API — Python + FastAPI"]
+        AUTH[🔐 JWT Auth<br/>httpOnly Cookies]
         RBAC[🛡️ RBAC<br/>Role Guard]
-        ROUTES[📡 REST API<br/>Routes]
-        ENC[🔒 AES-256<br/>Encryption]
+        ROUTES[📡 REST API<br/>11 Routers]
+        ENC[🔒 AES-256<br/>MySQL Encrypt]
+        EMAIL[📧 SMTP<br/>fastapi-mail]
     end
 
     subgraph DB["🗄️ MySQL Database — 3NF"]
@@ -132,6 +143,8 @@ graph TB
             USR[(users)]
             INS[(inspections)]
             CRK[(cracks)]
+            ASGN[(inspector_assignments)]
+            AREQ[(access_requests)]
         end
         subgraph LOGIC["Business Logic"]
             SP1["⚙️ SP: CalculateVulnerabilityScore"]
@@ -139,6 +152,7 @@ graph TB
             T1["⚡ Trigger: after_crack_insert"]
             T2["⚡ Trigger: after_score_insert"]
             T3["⚡ Trigger: after_report_insert"]
+            T4["⚡ Trigger: after_access_request_reviewed"]
         end
         subgraph OUTPUT["Output Tables"]
             VS[(vulnerability_scores)]
@@ -155,14 +169,18 @@ graph TB
     CRK -->|INSERT| T1
     T1 --> SP1
     SP1 --> VS
-    VS -->|risk=critical| T2
+    VS -->|risk=high/critical| T2
     T2 --> NOT
     NOT --> AU
     SP2 --> REP
     REP -->|INSERT| T3
     T3 --> AUD
+    AREQ -->|UPDATE status| T4
+    T4 --> AUD
     ROUTES --> ENC
     ENC --> REP
+    AREQ -->|approved| EMAIL
+    EMAIL -->|send_approval_email| USR
 ```
 
 ---
@@ -236,24 +254,39 @@ flowchart TD
     A[Inspection Created] --> B[Cracks Logged]
     B --> C{Trigger 1 Fires}
     C --> D[CalculateVulnerabilityScore SP]
-    
-    D --> E[age_score = current_year - construction_year ÷ 2]
-    D --> F[crack_score = Σ severity weights]
-    
-    F --> F1[minor crack = 1 pt]
-    F --> F2[moderate crack = 3 pts]
-    F --> F3[major crack = 7 pts]
-    F --> F4[critical crack = 15 pts]
-    
-    E & F --> G[total_score = age_score + crack_score]
-    
-    G --> H{Risk Level}
-    H -->|0 - 25| I[🟢 LOW]
-    H -->|26 - 50| J[🟡 MEDIUM]
-    H -->|51 - 75| K[🟠 HIGH]
-    H -->|76+| L[🔴 CRITICAL]
-    
-    K & L --> M[⚡ Trigger 2: Auto-Alert to Authorities]
+
+    D --> CAT[Step 1 — Category Durability Factor]
+    CAT --> CAT1[Rempart = ×0.8]
+    CAT --> CAT2[Porte de ville = ×0.9]
+    CAT --> CAT3[Kasbah = ×0.85]
+    CAT --> CAT4[Mosquée = ×1.0]
+    CAT --> CAT5[Maison traditionnelle = ×1.2]
+
+    D --> F[Step 2 — Raw Crack Score with Length Factor]
+    F --> F1["minor: 1 × min(length/10, 2)"]
+    F --> F2["moderate: 3 × min(length/20, 3)"]
+    F --> F3["major: 7 × min(length/30, 4)"]
+    F --> F4[critical: always 15 pts]
+
+    D --> E[Step 3 — Age Multiplier and Age Score]
+    E --> E1["age_multiplier = 1.0 + min(age/1000, 0.5)"]
+    E1 --> E2["range: 1.0 new → 1.5 for 500+ yr old"]
+    E --> E3["age_score = min(age/20, 10)"]
+    E3 --> E4[Only applied when cracks exist]
+
+    F & E --> G["crack_score = raw_crack_score × age_multiplier"]
+    G --> H["total_score = FLOOR((crack_score + age_score) × category_factor)"]
+
+    H --> I{Risk Level}
+    I -->|"0 – 15"| J["🟢 LOW"]
+    I -->|"16 – 35"| K["🟡 MEDIUM"]
+    I -->|"36 – 60"| L["🟠 HIGH"]
+    I -->|">60"| M["🔴 CRITICAL"]
+
+    N["⚠️ Override: any critical crack → minimum HIGH"]
+    F4 --> N
+
+    L & M --> O["⚡ Trigger 2: Auto-Alert all Authority users"]
 ```
 
 ---
@@ -275,6 +308,11 @@ erDiagram
         varchar password_hash
         int role_id FK
         varchar phone
+        boolean is_active
+        datetime last_login
+        varchar organization
+        varchar completion_token
+        datetime completion_token_expiry
         timestamp created_at
     }
 
@@ -294,16 +332,20 @@ erDiagram
         int construction_year
         int category_id FK
         text description
+        longblob photo_blob
+        varchar photo_mime_type
         enum status
     }
 
-    monument_assets {
-        int photo_id PK
+    inspector_assignments {
+        int assignment_id PK
         int monument_id FK
-        varchar photo_url
-        varchar caption
-        timestamp uploaded_at
-        int uploaded_by FK
+        int inspector_id FK
+        int assigned_by FK
+        text notes
+        date due_date
+        enum status
+        timestamp created_at
     }
 
     inspections {
@@ -313,6 +355,8 @@ erDiagram
         date inspection_date
         text notes
         enum overall_condition
+        enum status
+        timestamp created_at
     }
 
     cracks {
@@ -320,8 +364,10 @@ erDiagram
         int inspection_id FK
         varchar location_on_monument
         enum severity
-        int length_cm
+        decimal length_cm
         varchar photo_url
+        longblob photo_blob
+        varchar photo_mime_type
         timestamp detected_at
     }
 
@@ -352,12 +398,16 @@ erDiagram
         int monument_id FK
         int inspection_id FK
         int generated_by FK
+        int validated_by FK
         varchar title
         varchar file_path
+        longblob encrypted_content
         enum risk_level
         int total_score
         enum status
         timestamp created_at
+        timestamp validated_at
+        text validation_note
     }
 
     audit_logs {
@@ -371,14 +421,32 @@ erDiagram
         timestamp performed_at
     }
 
+    access_requests {
+        int id PK
+        varchar full_name
+        varchar email
+        varchar organization
+        int requested_role_id FK
+        text reason
+        enum status
+        datetime submitted_at
+        datetime reviewed_at
+        int reviewed_by_id FK
+        text review_note
+    }
+
     roles ||--o{ users : "has"
+    roles ||--o{ access_requests : "requested in"
     users ||--o{ inspections : "performs"
-    users ||--o{ monument_assets : "uploads"
     users ||--o{ notifications : "receives"
     users ||--o{ reports : "generates"
+    users ||--o{ reports : "validates"
     users ||--o{ audit_logs : "tracked in"
+    users ||--o{ inspector_assignments : "assigned to"
+    users ||--o{ inspector_assignments : "assigned by"
+    users ||--o{ access_requests : "reviewed by"
     monument_categories ||--o{ monuments : "classifies"
-    monuments ||--o{ monument_assets : "has"
+    monuments ||--o{ inspector_assignments : "has assignment"
     monuments ||--o{ inspections : "subject of"
     monuments ||--o{ vulnerability_scores : "scored in"
     monuments ||--o{ notifications : "triggers"
@@ -437,12 +505,13 @@ flowchart TD
 
 | Threat | Protection |
 |---|---|
-| 🔑 Unauthorized access | JWT tokens with expiry + role embedded |
-| 🛡️ Privilege escalation | RBAC middleware on every API route |
-| 💉 SQL Injection | 100% prepared statements — zero string concatenation |
-| 📄 Report data leaks | AES-256-CBC encryption — key never stored in DB |
-| 🔓 Password theft | bcrypt hashing — plain text never stored |
-| 👁️ Untracked access | Every sensitive action logged in audit_logs |
+| 🔑 Unauthorized access | JWT stored in **httpOnly cookies** (access 60 min + refresh 7 days) |
+| 🛡️ Privilege escalation | `require_role()` RBAC dependency on every protected route |
+| 💉 SQL Injection | 100% parameterized queries via `mysql-connector-python` |
+| 📄 Report data leaks | `AES_ENCRYPT` in MySQL — `encrypted_content` LONGBLOB, key never in DB |
+| 🔓 Password theft | `bcrypt` hashing (rounds=12) — plain text never stored |
+| 👁️ Untracked access | Every sensitive action logged in `audit_logs` via triggers + app |
+| 📧 Account phishing | Single-use completion token (48 hr expiry) sent via SMTP (Gmail TLS) |
 
 ---
 
@@ -452,27 +521,64 @@ flowchart TD
 
 ```sql
 -- Automatically called by Trigger 1 after each crack is logged
--- Computes risk level from monument age + crack severity weights
+-- Weighted formula: crack severity × age multiplier × category factor
+-- Step 1 — Crack severity weights (length-adjusted)
+--   minor:    1  × min(length_cm / 10,  2)
+--   moderate: 3  × min(length_cm / 20,  3)
+--   major:    7  × min(length_cm / 30,  4)
+--   critical: 15 (always maximum, length irrelevant)
+-- Step 2 — Age multiplier: 1.0 + min(age_years / 1000, 0.5)
+--   → 1.0 for new structures, up to 1.5 for 500+ year old ones
+--   → applied only when cracks exist (old monument with no cracks = LOW)
+-- Step 3 — Age score: min(age_years / 20, 10)  [capped at 10]
+-- Step 4 — Category durability factor
+--   Rempart 0.8 | Porte de ville 0.9 | Kasbah 0.85
+--   Mosquée 1.0 | Maison traditionnelle 1.2 | Jardin 1.1
+-- Step 5 — Final score
+--   crack_score  = raw_crack_score × age_multiplier
+--   total_score  = FLOOR((crack_score + age_score) × category_factor)
+-- Override: any critical crack forces minimum HIGH risk
 CALL CalculateVulnerabilityScore(inspection_id);
 -- Output: INSERT into vulnerability_scores
 ```
+
+**Risk level thresholds (post-formula):**
+
+| Score Range | Risk Level |
+|---|---|
+| 0 – 15 | 🟢 LOW |
+| 16 – 35 | 🟡 MEDIUM |
+| 36 – 60 | 🟠 HIGH |
+| 61+ | 🔴 CRITICAL |
 
 ### 📄 Stored Procedure 2 — `GenerateMonumentReport`
 
 ```sql
 -- Called by inspector when field work is complete
--- Compiles all inspection data → encrypts → saves report
+-- Compiles all inspection data → builds French-language structured report
+-- → AES-256 encrypts content → stores encrypted_content LONGBLOB in reports
 CALL GenerateMonumentReport(monument_id, inspection_id, generated_by);
--- Output: INSERT into reports (encrypted content)
+-- Output: INSERT into reports (encrypted_content, risk_level, total_score)
+-- Returns: LAST_INSERT_ID() AS report_id
 ```
+
+**Recommendations generated (French):**
+
+| Risk Level | Recommendation |
+|---|---|
+| 🟢 LOW | Surveillance périodique recommandée |
+| 🟡 MEDIUM | Inspection approfondie recommandée |
+| 🟠 HIGH | Intervention urgente requise |
+| 🔴 CRITICAL | DANGER: Fermeture et restauration immédiate |
 
 ### ⚡ Trigger Summary
 
 | Trigger | Fires On | Action |
 |---|---|---|
 | `after_crack_insert` | INSERT on `cracks` | Calls `CalculateVulnerabilityScore` |
-| `after_score_insert` | INSERT on `vulnerability_scores` | If HIGH/CRITICAL → INSERT notifications |
-| `after_report_insert` | INSERT on `reports` | INSERT into `audit_logs` |
+| `after_score_insert` | INSERT on `vulnerability_scores` | If HIGH/CRITICAL → INSERT notifications for all authority users |
+| `after_report_insert` | INSERT on `reports` | INSERT into `audit_logs` (REPORT_GENERATED) |
+| `after_access_request_reviewed` | UPDATE on `access_requests` (status change) | INSERT into `audit_logs` (APPROVED / REJECTED / PENDING) |
 
 ---
 
@@ -480,9 +586,14 @@ CALL GenerateMonumentReport(monument_id, inspection_id, generated_by);
 
 ```
 ai-team/sql/
-├── 01_schema.sql                # All CREATE TABLE statements
-├── 02_stored_procedures.sql     # SP: Score + Report
-├── 03_triggers.sql              # 3 triggers
+├── 01_schema.sql                # 12 tables — roles, users, monument_categories,
+│                                #   monuments, inspector_assignments, inspections,
+│                                #   cracks, vulnerability_scores, notifications,
+│                                #   reports, audit_logs, access_requests
+│                                #   + roles seed + admin bootstrap
+├── 02_stored_procedures.sql     # SP: CalculateVulnerabilityScore + GenerateMonumentReport
+├── 03_triggers.sql              # 4 triggers (crack→score, score→notify,
+│                                #             report→audit, access_request→audit)
 ├── 04_rbac_users.sql            # Roles, users, permissions
 └── 05_seed_data.sql             # Sample Taroudant monuments data
 ```
@@ -493,9 +604,10 @@ ai-team/sql/
 
 ### Prerequisites
 ```bash
-node >= 18.0.0
-mysql >= 8.0
-npm >= 9.0.0
+Python >= 3.10
+MySQL >= 8.0
+Node.js >= 18.0.0   # frontend only
+npm >= 9.0.0        # frontend only
 ```
 
 ### Installation
@@ -505,59 +617,104 @@ npm >= 9.0.0
 git clone https://github.com/your-team/taroudant-heritage-shield.git
 cd taroudant-heritage-shield/ai-team
 
-# 2. Setup the database
+# 2. Setup the database (run in order)
 mysql -u root -p < sql/01_schema.sql
 mysql -u root -p < sql/02_stored_procedures.sql
 mysql -u root -p < sql/03_triggers.sql
 mysql -u root -p < sql/04_rbac_users.sql
 mysql -u root -p < sql/05_seed_data.sql
 
-# 3. Configure environment
+# 3. Configure backend environment
 cd backend
-cp .env.example .env
-# Edit .env with your MySQL credentials and JWT secret
+copy .env.example .env
+# Fill in DB credentials, JWT keys, and SMTP settings
 
-# 4. Start backend
-npm install
-npm run dev
+# 4. Start the backend (Python + FastAPI)
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+python run.py               # Uvicorn on http://localhost:8000
 
-# 5. Start frontend
+# 5. Start the frontend (React + Vite)
 cd ../frontend
 npm install
-npm run dev
+npm run dev                 # Vite on http://localhost:5173
 ```
 
 ### Environment Variables
 
 ```env
 # backend/.env
-DB_HOST=localhost
-DB_USER=your_mysql_user
-DB_PASSWORD=your_mysql_password
+APP_ENV=development
+APP_SECRET_KEY=your-secret-key-min-50-chars
+FRONTEND_URL=http://localhost:5173
+
+DB_HOST=127.0.0.1
+DB_PORT=3308
 DB_NAME=taroudant_heritage_shield
-JWT_SECRET=your_super_secret_jwt_key
-AES_ENCRYPTION_KEY=your_32_char_aes_key
-PORT=3001
+DB_USER=root
+DB_PASSWORD=your_mysql_password
+
+JWT_SECRET_KEY=your-jwt-secret-key-min-50-chars
+JWT_ALGORITHM=HS256
+JWT_ACCESS_EXPIRE_MINUTES=60
+JWT_REFRESH_EXPIRE_DAYS=7
+
+COOKIE_SECURE=False
+COOKIE_SAMESITE=lax
+
+# SMTP (Gmail App Password recommended)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_FROM=noreply@heritage-taroudant.ma
 ```
 
 ---
 
 ## 📊 Pages & Features
 
-| Page | Role | Description |
-|---|---|---|
-| `/` | All | Home — Taroudant heritage story + monument map |
-| `/monuments` | All | Public catalogue with health indicators 🟢🟡🔴 |
-| `/monuments/:id` | All | Single monument — history, photos, public status |
-| `/analytics` | All | Public stats — monuments by risk level |
-| `/dashboard` | Inspector | Assignments, notifications, inspection forms |
-| `/inspect/:id` | Inspector | Create inspection + log cracks + upload photos |
-| `/reports` | Inspector / Admin | Generated reports list |
-| `/alerts` | Authority | Critical notification center |
-| `/map` | Authority | Color-coded monument health map |
-| `/users` | Admin | Create and manage user accounts |
-| `/assignments` | Admin | Assign inspectors to monuments |
-| `/system` | Admin | Audit logs, trigger history, system health |
+### 🌐 Public Routes (no login required)
+
+| Route | Description |
+|---|---|
+| `/` | Home — Taroudant heritage story, stats, call to action |
+| `/monuments` | Public catalogue with risk indicators 🟢🟡🔴 |
+| `/monument/:id` | Single monument — history, photos, public risk status |
+| `/about` | About the project and academic context |
+| `/map` | Color-coded monument health map (public) |
+| `/login` | Login form |
+| `/complete-account?token=…` | One-time account completion page (approved users) |
+
+### 🔐 Protected Routes (any authenticated user)
+
+| Route | Description |
+|---|---|
+| `/dashboard` | Role-based router → Inspector / Authority / Admin dashboard |
+| `/analytics` | Stats — monuments by risk level, inspection activity |
+| `/risk-lab` | Interactive vulnerability score simulator |
+| `/architecture` | System architecture diagram viewer |
+
+### 🔍 Inspector + Admin
+
+| Route | Description |
+|---|---|
+| `/inspect/new` | Create a new inspection for a monument |
+| `/inspect/:id` | View/edit inspection — log cracks, view score |
+
+### ⚠️ Authority + Admin
+
+| Route | Description |
+|---|---|
+| `/inspection/:id` | Read-only inspection view (authority review mode) |
+
+### ⚙️ Admin Only
+
+| Route | Description |
+|---|---|
+| `/admin/users` | User management — view, activate/deactivate accounts |
+| `/admin/monuments` | Monument management — add, edit, delete monuments |
 
 ---
 
@@ -567,13 +724,16 @@ This project is developed as part of an academic curriculum requiring:
 
 | Requirement | Implementation |
 |---|---|
-| ✅ Relational DB — MySQL 3NF | 11 normalized tables |
+| ✅ Relational DB — MySQL 3NF | 12 normalized tables |
 | ✅ Minimum 2 Stored Procedures | `CalculateVulnerabilityScore` + `GenerateMonumentReport` |
-| ✅ Minimum 3 Triggers | `after_crack_insert`, `after_score_insert`, `after_report_insert` |
-| ✅ Frontend Interface | React + Vite — role-based dashboards |
-| ✅ RBAC Security | JWT + role middleware on all routes |
-| ✅ Anti-SQL Injection | 100% prepared statements |
-| ✅ Report Encryption | AES-256-CBC — sensitive structural data |
+| ✅ Minimum 3 Triggers | **4 triggers** — crack→score, score→notify, report→audit, access_request→audit |
+| ✅ Frontend Interface | React + Vite (TypeScript) — animated, role-based dashboards |
+| ✅ Backend API | Python + FastAPI — 11 routers, Uvicorn ASGI server |
+| ✅ RBAC Security | httpOnly cookie JWT + `require_role()` dep on all protected routes |
+| ✅ Anti-SQL Injection | 100% parameterized queries (`mysql-connector-python`) |
+| ✅ Report Encryption | `AES_ENCRYPT` in MySQL — `encrypted_content` LONGBLOB in `reports` |
+| ✅ Email Notifications | SMTP via `fastapi-mail` — approval/rejection emails with completion link |
+| ✅ Access Request Workflow | `access_requests` table + admin review panel + 48 hr one-use token |
 | ✅ AI vs Traditional Comparison | Two parallel development teams |
 
 ---
