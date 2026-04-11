@@ -19,7 +19,7 @@
 [![Status](https://www.arabamerica.com/wp-content/uploads/2022/02/Taroudant-Morocco-4-scaled-1.jpeg)](.)
 [![Database](https://img.shields.io/badge/Database-MySQL%203NF-4479A1?style=for-the-badge&logo=mysql&logoColor=white)](.)
 [![Frontend](https://img.shields.io/badge/Frontend-React%20+%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](.)
-[![Backend](https://img.shields.io/badge/Backend-Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](.)
+[![Backend](https://img.shields.io/badge/Backend-Python%20+%20FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](.)
 [![Security](https://img.shields.io/badge/Security-AES--256%20+%20RBAC-DC143C?style=for-the-badge&logo=shield&logoColor=white)](.)
 [![Academic](https://img.shields.io/badge/Type-Academic%20Project-8A2BE2?style=for-the-badge)](.)
 
@@ -82,8 +82,18 @@ This is an **academic comparative study**: the same system is built by two teams
 taroudant-heritage-shield/
 │
 ├── 🤖 ai-team/                    # Built with AI assistance (Claude + Cursor)
-│   ├── frontend/                  # React + Vite application
-│   ├── backend/                   # Node.js + Express API
+│   ├── frontend/                  # React + Vite (TypeScript)
+│   ├── backend/                   # Python + FastAPI + Uvicorn
+│   │   ├── app/
+│   │   │   ├── routers/           # 11 API routers (auth, monuments, etc.)
+│   │   │   ├── services/          # auth_service, email_service, user_service
+│   │   │   ├── models/            # Pydantic request/response models
+│   │   │   ├── config.py          # Settings (pydantic-settings, .env)
+│   │   │   ├── database.py        # MySQL connection pool
+│   │   │   └── dependencies.py    # JWT + RBAC deps
+│   │   ├── main.py                # FastAPI app + CORS + routers
+│   │   ├── run.py                 # Uvicorn entrypoint
+│   │   └── requirements.txt
 │   ├── sql/                       # MySQL schema, procedures, triggers
 │   └── documents/                 # Architecture docs & diagrams
 │
@@ -97,8 +107,8 @@ taroudant-heritage-shield/
 | Dimension | 🤖 AI Team | 👥 Traditional Team |
 |---|---|---|
 | **Methodology** | Claude + Cursor assisted | Manual planning & coding |
-| **Frontend** | React + Vite | HTML / CSS / Vanilla JS |
-| **Backend** | Node.js + Express | PHP / Node.js |
+| **Frontend** | React + Vite (TypeScript) | HTML / CSS / Vanilla JS |
+| **Backend** | Python + FastAPI + Uvicorn | PHP / Node.js |
 | **Database** | MySQL 3NF | MySQL 3NF |
 | **Development Speed** | Measured | Measured |
 | **Code Quality** | Evaluated | Evaluated |
@@ -119,11 +129,12 @@ graph TB
         AD[⚙️ Admin<br/>Control Panel]
     end
 
-    subgraph API["⚙️ Backend API — Node.js + Express"]
-        AUTH[🔐 JWT Auth<br/>Middleware]
+    subgraph API["⚙️ Backend API — Python + FastAPI"]
+        AUTH[🔐 JWT Auth<br/>httpOnly Cookies]
         RBAC[🛡️ RBAC<br/>Role Guard]
-        ROUTES[📡 REST API<br/>Routes]
-        ENC[🔒 AES-256<br/>Encryption]
+        ROUTES[📡 REST API<br/>11 Routers]
+        ENC[🔒 AES-256<br/>MySQL Encrypt]
+        EMAIL[📧 SMTP<br/>fastapi-mail]
     end
 
     subgraph DB["🗄️ MySQL Database — 3NF"]
@@ -168,6 +179,8 @@ graph TB
     T4 --> AUD
     ROUTES --> ENC
     ENC --> REP
+    AREQ -->|approved| EMAIL
+    EMAIL -->|send_approval_email| USR
 ```
 
 ---
@@ -492,12 +505,13 @@ flowchart TD
 
 | Threat | Protection |
 |---|---|
-| 🔑 Unauthorized access | JWT tokens with expiry + role embedded |
-| 🛡️ Privilege escalation | RBAC middleware on every API route |
-| 💉 SQL Injection | 100% prepared statements — zero string concatenation |
-| 📄 Report data leaks | AES-256-CBC encryption — key never stored in DB |
-| 🔓 Password theft | bcrypt hashing — plain text never stored |
-| 👁️ Untracked access | Every sensitive action logged in audit_logs |
+| 🔑 Unauthorized access | JWT stored in **httpOnly cookies** (access 60 min + refresh 7 days) |
+| 🛡️ Privilege escalation | `require_role()` RBAC dependency on every protected route |
+| 💉 SQL Injection | 100% parameterized queries via `mysql-connector-python` |
+| 📄 Report data leaks | `AES_ENCRYPT` in MySQL — `encrypted_content` LONGBLOB, key never in DB |
+| 🔓 Password theft | `bcrypt` hashing (rounds=12) — plain text never stored |
+| 👁️ Untracked access | Every sensitive action logged in `audit_logs` via triggers + app |
+| 📧 Account phishing | Single-use completion token (48 hr expiry) sent via SMTP (Gmail TLS) |
 
 ---
 
@@ -590,9 +604,10 @@ ai-team/sql/
 
 ### Prerequisites
 ```bash
-node >= 18.0.0
-mysql >= 8.0
-npm >= 9.0.0
+Python >= 3.10
+MySQL >= 8.0
+Node.js >= 18.0.0   # frontend only
+npm >= 9.0.0        # frontend only
 ```
 
 ### Installation
@@ -602,59 +617,104 @@ npm >= 9.0.0
 git clone https://github.com/your-team/taroudant-heritage-shield.git
 cd taroudant-heritage-shield/ai-team
 
-# 2. Setup the database
+# 2. Setup the database (run in order)
 mysql -u root -p < sql/01_schema.sql
 mysql -u root -p < sql/02_stored_procedures.sql
 mysql -u root -p < sql/03_triggers.sql
 mysql -u root -p < sql/04_rbac_users.sql
 mysql -u root -p < sql/05_seed_data.sql
 
-# 3. Configure environment
+# 3. Configure backend environment
 cd backend
-cp .env.example .env
-# Edit .env with your MySQL credentials and JWT secret
+copy .env.example .env
+# Fill in DB credentials, JWT keys, and SMTP settings
 
-# 4. Start backend
-npm install
-npm run dev
+# 4. Start the backend (Python + FastAPI)
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+python run.py               # Uvicorn on http://localhost:8000
 
-# 5. Start frontend
+# 5. Start the frontend (React + Vite)
 cd ../frontend
 npm install
-npm run dev
+npm run dev                 # Vite on http://localhost:5173
 ```
 
 ### Environment Variables
 
 ```env
 # backend/.env
-DB_HOST=localhost
-DB_USER=your_mysql_user
-DB_PASSWORD=your_mysql_password
+APP_ENV=development
+APP_SECRET_KEY=your-secret-key-min-50-chars
+FRONTEND_URL=http://localhost:5173
+
+DB_HOST=127.0.0.1
+DB_PORT=3308
 DB_NAME=taroudant_heritage_shield
-JWT_SECRET=your_super_secret_jwt_key
-AES_ENCRYPTION_KEY=your_32_char_aes_key
-PORT=3001
+DB_USER=root
+DB_PASSWORD=your_mysql_password
+
+JWT_SECRET_KEY=your-jwt-secret-key-min-50-chars
+JWT_ALGORITHM=HS256
+JWT_ACCESS_EXPIRE_MINUTES=60
+JWT_REFRESH_EXPIRE_DAYS=7
+
+COOKIE_SECURE=False
+COOKIE_SAMESITE=lax
+
+# SMTP (Gmail App Password recommended)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+SMTP_FROM=noreply@heritage-taroudant.ma
 ```
 
 ---
 
 ## 📊 Pages & Features
 
-| Page | Role | Description |
-|---|---|---|
-| `/` | All | Home — Taroudant heritage story + monument map |
-| `/monuments` | All | Public catalogue with health indicators 🟢🟡🔴 |
-| `/monuments/:id` | All | Single monument — history, photos, public status |
-| `/analytics` | All | Public stats — monuments by risk level |
-| `/dashboard` | Inspector | Assignments, notifications, inspection forms |
-| `/inspect/:id` | Inspector | Create inspection + log cracks + upload photos |
-| `/reports` | Inspector / Admin | Generated reports list |
-| `/alerts` | Authority | Critical notification center |
-| `/map` | Authority | Color-coded monument health map |
-| `/users` | Admin | Create and manage user accounts |
-| `/assignments` | Admin | Assign inspectors to monuments |
-| `/system` | Admin | Audit logs, trigger history, system health |
+### 🌐 Public Routes (no login required)
+
+| Route | Description |
+|---|---|
+| `/` | Home — Taroudant heritage story, stats, call to action |
+| `/monuments` | Public catalogue with risk indicators 🟢🟡🔴 |
+| `/monument/:id` | Single monument — history, photos, public risk status |
+| `/about` | About the project and academic context |
+| `/map` | Color-coded monument health map (public) |
+| `/login` | Login form |
+| `/complete-account?token=…` | One-time account completion page (approved users) |
+
+### 🔐 Protected Routes (any authenticated user)
+
+| Route | Description |
+|---|---|
+| `/dashboard` | Role-based router → Inspector / Authority / Admin dashboard |
+| `/analytics` | Stats — monuments by risk level, inspection activity |
+| `/risk-lab` | Interactive vulnerability score simulator |
+| `/architecture` | System architecture diagram viewer |
+
+### 🔍 Inspector + Admin
+
+| Route | Description |
+|---|---|
+| `/inspect/new` | Create a new inspection for a monument |
+| `/inspect/:id` | View/edit inspection — log cracks, view score |
+
+### ⚠️ Authority + Admin
+
+| Route | Description |
+|---|---|
+| `/inspection/:id` | Read-only inspection view (authority review mode) |
+
+### ⚙️ Admin Only
+
+| Route | Description |
+|---|---|
+| `/admin/users` | User management — view, activate/deactivate accounts |
+| `/admin/monuments` | Monument management — add, edit, delete monuments |
 
 ---
 
@@ -667,11 +727,13 @@ This project is developed as part of an academic curriculum requiring:
 | ✅ Relational DB — MySQL 3NF | 12 normalized tables |
 | ✅ Minimum 2 Stored Procedures | `CalculateVulnerabilityScore` + `GenerateMonumentReport` |
 | ✅ Minimum 3 Triggers | **4 triggers** — crack→score, score→notify, report→audit, access_request→audit |
-| ✅ Frontend Interface | React + Vite — role-based dashboards |
-| ✅ RBAC Security | JWT + role middleware on all routes |
-| ✅ Anti-SQL Injection | 100% prepared statements |
-| ✅ Report Encryption | AES-256 (MySQL `AES_ENCRYPT`) — `encrypted_content` LONGBLOB in `reports` |
-| ✅ Access Request Workflow | `access_requests` table + admin review panel + completion token flow |
+| ✅ Frontend Interface | React + Vite (TypeScript) — animated, role-based dashboards |
+| ✅ Backend API | Python + FastAPI — 11 routers, Uvicorn ASGI server |
+| ✅ RBAC Security | httpOnly cookie JWT + `require_role()` dep on all protected routes |
+| ✅ Anti-SQL Injection | 100% parameterized queries (`mysql-connector-python`) |
+| ✅ Report Encryption | `AES_ENCRYPT` in MySQL — `encrypted_content` LONGBLOB in `reports` |
+| ✅ Email Notifications | SMTP via `fastapi-mail` — approval/rejection emails with completion link |
+| ✅ Access Request Workflow | `access_requests` table + admin review panel + 48 hr one-use token |
 | ✅ AI vs Traditional Comparison | Two parallel development teams |
 
 ---
