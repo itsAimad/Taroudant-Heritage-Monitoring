@@ -37,7 +37,6 @@ CREATE TABLE IF NOT EXISTS users (
   role_id       INT NOT NULL,
   phone         VARCHAR(20),
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
   -- Foreign key ensures each user has a valid role; RESTRICT prevents accidental role deletion
   CONSTRAINT fk_users_role
     FOREIGN KEY (role_id)
@@ -87,14 +86,12 @@ CREATE TABLE IF NOT EXISTS monuments (
   category_id       INT,
   description       TEXT,
   status            ENUM('active','under_restoration','closed','critical') DEFAULT 'active',
-
   -- Category is optional; if the category is deleted we allow the monument to remain without it
   CONSTRAINT fk_monuments_category
     FOREIGN KEY (category_id)
     REFERENCES monument_categories (category_id)
     ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- Index on category for reporting and filtering by monument type
 CREATE INDEX IF NOT EXISTS idx_monuments_category_id ON monuments (category_id);
 

@@ -1,7 +1,6 @@
 -- Taroudant Heritage Shield — Schéma MySQL (équipe sans IA)
 -- FR: modèle métier en français (noms de colonnes)
 -- EN: mapping UI / API documenté en COMMENT pour le frontend (Admin, Expert, Authority, etc.)
-
 CREATE DATABASE IF NOT EXISTS taroudant_heritage_shield
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;

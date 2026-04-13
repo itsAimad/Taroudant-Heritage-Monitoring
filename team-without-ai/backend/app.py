@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import secrets as _secrets
+import sys
+import warnings
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Callable
@@ -27,15 +30,69 @@ from mappers import (
     rapport_statut_to_ui,
     to_iso_date,
 )
+from encryption import decrypt_field, encrypt_field
+from rate_limit import default_limiter, log_audit
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
-    CORS(app)  # dev-friendly; tighten origins later
 
-    app.config["JWT_SECRET"] = os.getenv("JWT_SECRET", "dev-change-me")
+    # ------------------------------------------------------------------
+    # SECURITY FIX A — CORS: restrict to configured origins only
+    # ORIGINAL: CORS(app)  — wildcard, any origin allowed
+    # ------------------------------------------------------------------
+    _allowed_origins = os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:3000,http://localhost:5173",
+    ).split(",")
+    CORS(app, origins=[o.strip() for o in _allowed_origins], supports_credentials=True)
+
+    # ------------------------------------------------------------------
+    # SECURITY FIX B — JWT secret: refuse insecure default in production
+    # ORIGINAL: os.getenv("JWT_SECRET", "dev-change-me")
+    # ------------------------------------------------------------------
+    _jwt_secret = os.getenv("JWT_SECRET", "")
+    _flask_env = os.getenv("FLASK_ENV", "production")
+
+    if not _jwt_secret or _jwt_secret == "dev-change-me":
+        if _flask_env == "production":
+            print(
+                "[app] FATAL: JWT_SECRET is not set or is the insecure default. "
+                "Generate one: python -c \"import secrets; print(secrets.token_hex(32))\"",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        _jwt_secret = _secrets.token_hex(32)
+        warnings.warn(
+            "JWT_SECRET not set — using ephemeral secret (dev only). "
+            "All tokens will be invalidated on restart.",
+            stacklevel=1,
+        )
+
+    app.config["JWT_SECRET"] = _jwt_secret
     app.config["JWT_ALGO"] = os.getenv("JWT_ALGO", "HS256")
-    app.config["JWT_TTL_MINUTES"] = int(os.getenv("JWT_TTL_MINUTES", "10080"))  # 7 days
+    # SECURITY FIX C — TTL reduced from 7 days to 60 minutes
+    # ORIGINAL: int(os.getenv("JWT_TTL_MINUTES", "10080"))
+    app.config["JWT_TTL_MINUTES"] = int(os.getenv("JWT_TTL_MINUTES", "60"))
+
+    # ------------------------------------------------------------------
+    # SECURITY FIX D — HTTP security headers on every response
+    # ------------------------------------------------------------------
+    @app.after_request
+    def add_security_headers(response):
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
+        response.headers["Content-Security-Policy"] = "default-src 'none'"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers.pop("Server", None)
+        return response
+
+    # ------------------------------------------------------------------
+    # Auth helpers
+    # ------------------------------------------------------------------
 
     def require_auth(fn: Callable[..., Any]):
         @wraps(fn)
@@ -53,6 +110,10 @@ def create_app() -> Flask:
                 )
             except jwt.PyJWTError:
                 return jsonify({"error": "Invalid token"}), 401
+
+            # Reject pre-auth tokens (2FA pending) from accessing full API
+            if payload.get("phase") == "2fa_pending":
+                return jsonify({"error": "2FA verification required"}), 401
 
             request.user = payload  # type: ignore[attr-defined]
             return fn(*args, **kwargs)
@@ -80,6 +141,10 @@ def create_app() -> Flask:
             "Authority": "autorite",
         }
         return mapping.get(role_ui, role_ui)
+
+    # ------------------------------------------------------------------
+    # Serializers
+    # ------------------------------------------------------------------
 
     def serialize_monument(row: dict[str, Any]) -> dict[str, Any]:
         return {
@@ -120,12 +185,14 @@ def create_app() -> Flask:
         }
 
     def serialize_rapport(row: dict[str, Any]) -> dict[str, Any]:
+        # SECURITY FIX E — decrypt sensitive fields on read
+        # ORIGINAL: row["diagnostic_structurel"] or "" — plaintext
         return {
             "id": f"r{row['id_rapport']}",
             "dateRapport": to_iso_date(row["date_rapport"]),
-            "diagnosticStructurel": row["diagnostic_structurel"] or "",
-            "analyseFissures": row["analyse_fissures"] or "",
-            "recommandations": row["recommandations"] or "",
+            "diagnosticStructurel": decrypt_field(row["diagnostic_structurel"]) or "",
+            "analyseFissures":      decrypt_field(row["analyse_fissures"]) or "",
+            "recommandations":      decrypt_field(row["recommandations"]) or "",
             "niveauPriorite": rapport_priorite_to_ui(row["niveau_priorite"]),
             "statut": rapport_statut_to_ui(row["statut"]),
             "commentaireAutorite": row.get("commentaire_autorite") or "",
@@ -135,12 +202,25 @@ def create_app() -> Flask:
             "monumentName": row["monument_nom"] or "",
         }
 
+    # ------------------------------------------------------------------
+    # Health
+    # ------------------------------------------------------------------
+
     @app.get("/health")
     def health():
         return jsonify({"ok": True})
 
+    # ------------------------------------------------------------------
+    # Auth
+    # ------------------------------------------------------------------
+
     @app.post("/auth/login")
     def login():
+        # SECURITY FIX F — Rate limiting on login endpoint
+        ip = request.remote_addr or "unknown"
+        if not default_limiter.check("login", ip):
+            return jsonify({"error": "Too many login attempts. Try again in 60 seconds."}), 429
+
         data = request.get_json(silent=True) or {}
         email = (data.get("email") or "").strip().lower()
         password = data.get("password") or ""
@@ -150,7 +230,7 @@ def create_app() -> Flask:
 
         user_row = fetch_one(
             """
-            SELECT id_utilisateur, nom, email, mot_de_passe, role
+            SELECT id_utilisateur, nom, email, mot_de_passe, role, totp_enabled
             FROM UTILISATEUR
             WHERE email = %s
             LIMIT 1
@@ -158,22 +238,43 @@ def create_app() -> Flask:
             (email,),
         )
 
+        _ua = request.headers.get("User-Agent", "")
+
         if not user_row:
+            # SECURITY FIX G — Audit log: failed login (unknown user)
+            _conn = get_connection()
+            try:
+                log_audit(conn=_conn, user_id=None, ip_address=ip,
+                          action="login_failure", success=False,
+                          detail=email, user_agent=_ua)
+                _conn.commit()
+            finally:
+                _conn.close()
             return jsonify({"error": "Invalid credentials"}), 401
 
         stored_hash = user_row["mot_de_passe"]
         if isinstance(stored_hash, memoryview):
             stored_hash = stored_hash.tobytes().decode("utf-8", errors="ignore")
-
         if not isinstance(stored_hash, str):
             stored_hash = str(stored_hash)
 
         if not bcrypt.checkpw(password.encode("utf-8"), stored_hash.encode("utf-8")):
+            _conn = get_connection()
+            try:
+                log_audit(conn=_conn, user_id=user_row["id_utilisateur"],
+                          ip_address=ip, action="login_failure", success=False,
+                          detail=email, user_agent=_ua)
+                _conn.commit()
+            finally:
+                _conn.close()
             return jsonify({"error": "Invalid credentials"}), 401
+
+        # Password valid — reset rate limit counter
+        default_limiter.reset("login", ip)
 
         now = datetime.utcnow()
 
-        # Track last login time for Admin view (UTILISATEUR.last_login).
+        # Update last login
         conn = get_connection()
         try:
             with conn.cursor() as cur:
@@ -181,13 +282,29 @@ def create_app() -> Flask:
                     "UPDATE UTILISATEUR SET last_login = %s WHERE id_utilisateur = %s",
                     (now, user_row["id_utilisateur"]),
                 )
+            conn.commit()
         finally:
             conn.close()
 
+        role_ui = db_role_to_ui(user_row["role"])
+
+        # SECURITY FIX H — 2FA: if enabled, issue a short-lived pre-auth token
+        totp_enabled = bool(user_row.get("totp_enabled", False))
+        if totp_enabled:
+            pre_exp = int((now + timedelta(minutes=5)).timestamp())
+            pre_payload = {
+                "sub": str(user_row["id_utilisateur"]),
+                "phase": "2fa_pending",
+                "exp": pre_exp,
+            }
+            pre_token = jwt.encode(
+                pre_payload, app.config["JWT_SECRET"],
+                algorithm=app.config["JWT_ALGO"]
+            )
+            return jsonify({"requires2FA": True, "preAuthToken": pre_token}), 200
+
         exp_dt = now + timedelta(minutes=app.config["JWT_TTL_MINUTES"])
         exp_ts = int(exp_dt.timestamp())
-
-        role_ui = db_role_to_ui(user_row["role"])
         payload = {
             "sub": str(user_row["id_utilisateur"]),
             "email": user_row["email"],
@@ -196,6 +313,16 @@ def create_app() -> Flask:
             "exp": exp_ts,
         }
         token = jwt.encode(payload, app.config["JWT_SECRET"], algorithm=app.config["JWT_ALGO"])
+
+        # Audit log success
+        _conn = get_connection()
+        try:
+            log_audit(conn=_conn, user_id=user_row["id_utilisateur"],
+                      ip_address=ip, action="login_success", success=True,
+                      user_agent=_ua)
+            _conn.commit()
+        finally:
+            _conn.close()
 
         return jsonify(
             {
@@ -208,6 +335,149 @@ def create_app() -> Flask:
                 },
             }
         )
+
+    @app.post("/auth/login/2fa")
+    def login_2fa():
+        """Second-factor verification after a successful password check."""
+        ip = request.remote_addr or "unknown"
+        _ua = request.headers.get("User-Agent", "")
+
+        # Rate limit 2FA attempts
+        if not default_limiter.check("2fa_verify", ip):
+            return jsonify({"error": "Too many 2FA attempts. Try again shortly."}), 429
+
+        data = request.get_json(silent=True) or {}
+        pre_token = (data.get("preAuthToken") or "").strip()
+        code = (data.get("totpCode") or "").strip()
+
+        try:
+            pre_payload = jwt.decode(
+                pre_token, app.config["JWT_SECRET"],
+                algorithms=[app.config["JWT_ALGO"]],
+            )
+        except jwt.PyJWTError:
+            return jsonify({"error": "Invalid or expired pre-auth token"}), 401
+
+        if pre_payload.get("phase") != "2fa_pending":
+            return jsonify({"error": "Invalid token phase"}), 401
+
+        user_id = int(pre_payload["sub"])
+        user_row = fetch_one(
+            "SELECT id_utilisateur, nom, email, role, totp_secret FROM UTILISATEUR "
+            "WHERE id_utilisateur=%s LIMIT 1",
+            (user_id,),
+        )
+        if not user_row:
+            return jsonify({"error": "User not found"}), 404
+
+        from two_factor import verify_totp
+        secret_enc = user_row.get("totp_secret") or ""
+        secret = decrypt_field(secret_enc) if secret_enc else ""
+        if not secret or not verify_totp(secret, code):
+            _conn = get_connection()
+            try:
+                log_audit(conn=_conn, user_id=user_id, ip_address=ip,
+                          action="2fa_failure", success=False, user_agent=_ua)
+                _conn.commit()
+            finally:
+                _conn.close()
+            return jsonify({"error": "Invalid 2FA code"}), 401
+
+        default_limiter.reset("2fa_verify", ip)
+
+        now = datetime.utcnow()
+        role_ui = db_role_to_ui(user_row["role"])
+        exp_ts = int((now + timedelta(minutes=app.config["JWT_TTL_MINUTES"])).timestamp())
+        full_payload = {
+            "sub": str(user_id),
+            "email": user_row["email"],
+            "name": user_row["nom"],
+            "role": role_ui,
+            "exp": exp_ts,
+        }
+        token = jwt.encode(
+            full_payload, app.config["JWT_SECRET"],
+            algorithm=app.config["JWT_ALGO"]
+        )
+
+        _conn = get_connection()
+        try:
+            log_audit(conn=_conn, user_id=user_id, ip_address=ip,
+                      action="2fa_success", success=True, user_agent=_ua)
+            _conn.commit()
+        finally:
+            _conn.close()
+
+        return jsonify({
+            "token": token,
+            "user": {
+                "id": str(user_id),
+                "name": user_row["nom"],
+                "email": user_row["email"],
+                "role": role_ui,
+            },
+        })
+
+    @app.post("/auth/2fa/setup")
+    @require_auth
+    def setup_2fa():
+        """Generate a TOTP secret and return QR code for the current user."""
+        payload = request.user  # type: ignore[attr-defined]
+        user_id = int(payload["sub"])
+        email = payload.get("email", "")
+
+        from two_factor import generate_totp_secret, get_totp_uri, generate_qr_code_base64
+        secret = generate_totp_secret()
+        uri = get_totp_uri(secret, email)
+        qr = generate_qr_code_base64(uri)
+
+        conn = get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE UTILISATEUR SET totp_secret=%s, totp_enabled=FALSE "
+                    "WHERE id_utilisateur=%s",
+                    (encrypt_field(secret), user_id),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return jsonify({"qrCode": qr, "manualEntry": secret})
+
+    @app.post("/auth/2fa/verify-setup")
+    @require_auth
+    def verify_setup_2fa():
+        """Confirm the user's TOTP app works before enabling 2FA."""
+        payload = request.user  # type: ignore[attr-defined]
+        user_id = int(payload["sub"])
+        data = request.get_json(silent=True) or {}
+        code = (data.get("totpCode") or "").strip()
+
+        user_row = fetch_one(
+            "SELECT totp_secret FROM UTILISATEUR WHERE id_utilisateur=%s LIMIT 1",
+            (user_id,),
+        )
+        if not user_row or not user_row.get("totp_secret"):
+            return jsonify({"error": "2FA not set up yet"}), 400
+
+        from two_factor import verify_totp
+        secret = decrypt_field(user_row["totp_secret"]) or ""
+        if not verify_totp(secret, code):
+            return jsonify({"error": "Invalid code"}), 400
+
+        conn = get_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE UTILISATEUR SET totp_enabled=TRUE WHERE id_utilisateur=%s",
+                    (user_id,),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+        return jsonify({"ok": True, "message": "2FA enabled"})
 
     @app.get("/auth/me")
     @require_auth
@@ -228,23 +498,24 @@ def create_app() -> Flask:
     def register():
         """
         Endpoint utile pour créer un premier admin/expert/autorité en dev.
-        Le frontend actuel n'a pas encore de page register, mais cet endpoint aide à tester.
+        SECURITY: rate-limited to 3 registrations per hour per IP.
         """
+        ip = request.remote_addr or "unknown"
+        if not default_limiter.check("register", ip):
+            return jsonify({"error": "Registration rate limit exceeded"}), 429
+
         data = request.get_json(silent=True) or {}
         nom = (data.get("name") or "").strip()
         email = (data.get("email") or "").strip().lower()
         password = data.get("password") or ""
-        role_db = (data.get("role") or "").strip().lower()  # admin|expert|autorite
+        role_db = (data.get("role") or "").strip().lower()
 
         if not nom or not email or not password or role_db not in {"admin", "expert", "autorite"}:
             return jsonify({"error": "name, email, password, and valid role are required"}), 400
 
-        # On évite import circular: pymysql insertion simple via fetch_one? -> on fera un INSERT direct via connection
         from db import execute
 
         hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt())
-
-        # mot_de_passe est VARCHAR(255) : stocker str( bytes ) compatible
         execute(
             """
             INSERT INTO UTILISATEUR (nom, email, mot_de_passe, role)
@@ -252,8 +523,11 @@ def create_app() -> Flask:
             """,
             (nom, email, hashed.decode("utf-8"), role_db),
         )
-
         return jsonify({"ok": True})
+
+    # ------------------------------------------------------------------
+    # Users
+    # ------------------------------------------------------------------
 
     @app.get("/users")
     @require_auth
@@ -290,6 +564,7 @@ def create_app() -> Flask:
     @require_auth
     @require_roles("Admin")
     def users_create():
+        payload = request.user  # type: ignore[attr-defined]
         data = request.get_json(silent=True) or {}
         name = (data.get("name") or "").strip()
         email = (data.get("email") or "").strip().lower()
@@ -310,6 +585,11 @@ def create_app() -> Flask:
                 )
                 uid = cur.lastrowid
             conn.commit()
+            # Audit log
+            ip = request.remote_addr or "unknown"
+            log_audit(conn=get_connection(), user_id=int(payload.get("sub", 0)),
+                      ip_address=ip, action="user_create", success=True,
+                      resource_id=str(uid), user_agent=request.headers.get("User-Agent",""))
             return jsonify(
                 {
                     "id": str(uid),
@@ -362,9 +642,24 @@ def create_app() -> Flask:
                 if cur.rowcount == 0:
                     return jsonify({"error": "User not found"}), 404
             conn.commit()
+            # Audit log
+            ip = request.remote_addr or "unknown"
+            _ac = get_connection()
+            try:
+                log_audit(conn=_ac, user_id=int(payload.get("sub", 0)),
+                          ip_address=ip, action="user_delete", success=True,
+                          resource_id=str(user_id),
+                          user_agent=request.headers.get("User-Agent",""))
+                _ac.commit()
+            finally:
+                _ac.close()
             return jsonify({"ok": True})
         finally:
             conn.close()
+
+    # ------------------------------------------------------------------
+    # Monuments
+    # ------------------------------------------------------------------
 
     @app.get("/monuments")
     @require_auth
@@ -533,6 +828,10 @@ def create_app() -> Flask:
         finally:
             conn.close()
 
+    # ------------------------------------------------------------------
+    # Seismes
+    # ------------------------------------------------------------------
+
     @app.get("/seismes")
     @require_auth
     def seismes_list():
@@ -610,6 +909,17 @@ def create_app() -> Flask:
                 )
                 row = cur.fetchone()
             conn.commit()
+            # Audit
+            _ac = get_connection()
+            try:
+                log_audit(conn=_ac, user_id=int(payload.get("sub", 0)),
+                          ip_address=request.remote_addr or "unknown",
+                          action="seisme_create", success=True,
+                          resource_id=str(seisme_id),
+                          user_agent=request.headers.get("User-Agent",""))
+                _ac.commit()
+            finally:
+                _ac.close()
             return jsonify(serialize_seisme(row))
         finally:
             conn.close()
@@ -723,6 +1033,10 @@ def create_app() -> Flask:
         finally:
             conn.close()
 
+    # ------------------------------------------------------------------
+    # Dashboard
+    # ------------------------------------------------------------------
+
     @app.get("/dashboard/summary")
     @require_auth
     def dashboard_summary():
@@ -733,7 +1047,6 @@ def create_app() -> Flask:
                 monuments_count = int(cur.fetchone()["c"])
                 cur.execute("SELECT COUNT(*) as c FROM INSPECTION")
                 inspections_count = int(cur.fetchone()["c"])
-                # Nombre d'alertes actuellement "actives" (système, visibles aux autorités)
                 cur.execute(
                     "SELECT COUNT(*) as c FROM ALERTE WHERE statut IN ('nouvelle','en_cours')"
                 )
@@ -777,6 +1090,10 @@ def create_app() -> Flask:
             )
         finally:
             conn.close()
+
+    # ------------------------------------------------------------------
+    # Inspections
+    # ------------------------------------------------------------------
 
     @app.get("/inspections")
     @require_auth
@@ -1005,13 +1322,29 @@ def create_app() -> Flask:
                 except Exception:
                     return jsonify({"error": "Cannot delete inspection linked to reports/alerts"}), 409
             conn.commit()
+            # Audit
+            _ac = get_connection()
+            try:
+                log_audit(conn=_ac, user_id=int(payload.get("sub", 0)),
+                          ip_address=request.remote_addr or "unknown",
+                          action="inspection_delete", success=True,
+                          resource_id=str(inspection_id),
+                          user_agent=request.headers.get("User-Agent",""))
+                _ac.commit()
+            finally:
+                _ac.close()
             return jsonify({"ok": True})
         finally:
             conn.close()
 
+    # ------------------------------------------------------------------
+    # Reports — with encryption on write, decryption on read
+    # ------------------------------------------------------------------
+
     @app.get("/reports")
     @require_auth
     def reports_list():
+        payload = request.user  # type: ignore[attr-defined]
         conn = get_connection()
         try:
             with conn.cursor() as cur:
@@ -1026,6 +1359,16 @@ def create_app() -> Flask:
                     """
                 )
                 rows = cur.fetchall()
+            # Audit log for bulk report access
+            _ac = get_connection()
+            try:
+                log_audit(conn=_ac, user_id=int(payload.get("sub", 0)),
+                          ip_address=request.remote_addr or "unknown",
+                          action="report_view", success=True,
+                          user_agent=request.headers.get("User-Agent",""))
+                _ac.commit()
+            finally:
+                _ac.close()
             return jsonify([serialize_rapport(r) for r in rows])
         finally:
             conn.close()
@@ -1036,6 +1379,11 @@ def create_app() -> Flask:
     def reports_create():
         payload = request.user  # type: ignore[attr-defined]
         data = request.get_json(silent=True) or {}
+
+        # Rate limiting for report creation
+        ip = request.remote_addr or "unknown"
+        if not default_limiter.check("reports_create", ip):
+            return jsonify({"error": "Report creation rate limit exceeded"}), 429
 
         inspection_raw = (data.get("inspectionId") or "").strip()
         diagnostic = (data.get("diagnosticStructurel") or "").strip()
@@ -1054,17 +1402,24 @@ def create_app() -> Flask:
         conn = get_connection()
         try:
             with conn.cursor() as cur:
+                # SECURITY FIX E — encrypt sensitive fields before storing
                 cur.execute(
                     """
                     INSERT INTO RAPPORT
                     (date_rapport, diagnostic_structurel, analyse_fissures, recommandations, niveau_priorite, statut, id_inspection, id_utilisateur)
                     VALUES (CURDATE(), %s, %s, %s, %s, 'en_attente', %s, %s)
                     """,
-                    (diagnostic, analyse, recommandations, rapport_priorite_to_db(priorite_ui), inspection_id, int(payload.get("sub"))),
+                    (
+                        encrypt_field(diagnostic),
+                        encrypt_field(analyse),
+                        encrypt_field(recommandations),
+                        rapport_priorite_to_db(priorite_ui),
+                        inspection_id,
+                        int(payload.get("sub")),
+                    ),
                 )
                 report_id = cur.lastrowid
 
-                # Notification autorités à la création d'un rapport expert
                 cur.execute(
                     """
                     INSERT INTO ALERTE (date_alerte, message, niveau, statut, type_degradation, alerte_recue, id_inspection, id_utilisateur)
@@ -1090,6 +1445,16 @@ def create_app() -> Flask:
                 )
                 row = cur.fetchone()
             conn.commit()
+            # Audit
+            _ac = get_connection()
+            try:
+                log_audit(conn=_ac, user_id=int(payload.get("sub", 0)),
+                          ip_address=ip, action="report_create", success=True,
+                          resource_id=str(report_id),
+                          user_agent=request.headers.get("User-Agent",""))
+                _ac.commit()
+            finally:
+                _ac.close()
             return jsonify(serialize_rapport(row))
         finally:
             conn.close()
@@ -1125,6 +1490,7 @@ def create_app() -> Flask:
                 if int(existing["id_utilisateur"]) != int(payload.get("sub")):
                     return jsonify({"error": "Forbidden"}), 403
 
+                # SECURITY FIX E — encrypt on update too
                 cur.execute(
                     """
                     UPDATE RAPPORT
@@ -1136,9 +1502,9 @@ def create_app() -> Flask:
                     WHERE id_rapport=%s
                     """,
                     (
-                        diagnostic,
-                        analyse,
-                        recommandations,
+                        encrypt_field(diagnostic),
+                        encrypt_field(analyse),
+                        encrypt_field(recommandations),
                         rapport_priorite_to_db(priorite_ui),
                         inspection_id or int(existing["id_inspection"]),
                         report_id,
@@ -1188,7 +1554,6 @@ def create_app() -> Flask:
                 if cur.rowcount == 0:
                     return jsonify({"error": "Rapport not found"}), 404
 
-                # commentaire authority stored in ALERTE message add-on for traceability (DB lacks dedicated column)
                 if commentaire:
                     cur.execute(
                         """
@@ -1205,6 +1570,10 @@ def create_app() -> Flask:
             return jsonify({"ok": True})
         finally:
             conn.close()
+
+    # ------------------------------------------------------------------
+    # Alerts
+    # ------------------------------------------------------------------
 
     @app.get("/alerts")
     @require_auth
@@ -1241,6 +1610,16 @@ def create_app() -> Flask:
                         """
                     )
                 rows = cur.fetchall()
+            # Audit log
+            _ac = get_connection()
+            try:
+                log_audit(conn=_ac, user_id=user_id,
+                          ip_address=request.remote_addr or "unknown",
+                          action="alert_read", success=True,
+                          user_agent=request.headers.get("User-Agent",""))
+                _ac.commit()
+            finally:
+                _ac.close()
             result = [
                 {
                     "id": f"a{r['id_alerte']}",
@@ -1313,5 +1692,8 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    # SECURITY FIX I — debug=False in production
+    # ORIGINAL: debug=True unconditionally
+    _debug = os.getenv("FLASK_ENV", "production") != "production"
+    app.run(host="0.0.0.0", port=port, debug=_debug)
 
