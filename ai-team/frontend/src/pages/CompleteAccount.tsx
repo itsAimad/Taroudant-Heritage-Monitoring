@@ -3,10 +3,12 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react';
 import { authService, ApiError } from '@/services/authService';
+import { useAuth } from '@/context/AuthContext';
 
 const CompleteAccount = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const token = searchParams.get('token');
 
   const [verificationStatus, setVerificationStatus] = useState<'loading' | 'valid' | 'invalid'>('loading');
@@ -63,10 +65,14 @@ const CompleteAccount = () => {
     setStatus('submitting');
     try {
       await authService.completeAccount({ token, password });
+      // Destroy any existing session so the new user starts fresh.
+      // This clears both the httpOnly cookies (via API) AND the
+      // React in-memory user state — preventing session bleed from
+      // an admin who opened this link while logged in.
       try {
-        await authService.logout();
-      } catch (e) {
-        // Ignore logout errors
+        await logout();
+      } catch {
+        // best-effort — state is cleared regardless
       }
       setStatus('success');
     } catch (err: any) {
@@ -146,13 +152,13 @@ const CompleteAccount = () => {
             <h1 className="font-heading text-3xl text-sand-light mb-4">Setup Complete</h1>
             <p className="text-sand/60 text-sm mb-10 leading-relaxed">
               Welcome, <span className="text-sand-light font-medium">{userData?.full_name}</span>! 
-              Your account has been successfully activated. Please return to the home page to start.
+              Your account is now active. Please log in with your new password to access the system.
             </p>
             <Link 
-              to="/"
+              to="/login"
               className="group flex items-center justify-center gap-3 w-full py-4 bg-copper-light text-charcoal rounded-xl font-bold tracking-wider hover:bg-copper-light/90 transition-all active:scale-[0.98]"
             >
-              RETURN TO HOME PAGE <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              PROCEED TO LOGIN <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>
         ) : (
