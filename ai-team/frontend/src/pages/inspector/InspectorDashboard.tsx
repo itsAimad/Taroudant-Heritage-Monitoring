@@ -3,7 +3,7 @@ import { inspectionService, Inspection } from '../../services/inspectionService'
 import { assignmentService, Assignment } from '../../services/assignmentService'
 import { useAuth } from '../../context/AuthContext'
 import PageTransition from '../../components/ui/PageTransition'
-import { Plus, MapPin, ChevronRight, Activity, Clock, AlertCircle, X, ClipboardList, FileText, CheckCircle2 } from 'lucide-react'
+import { Plus, MapPin, ChevronRight, Activity, Clock, AlertCircle, X, ClipboardList, FileText, CheckCircle2, FlaskConical } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -56,9 +56,19 @@ export default function InspectorDashboard() {
       inspList.forEach((insp) => {
         const existing = byMonument[insp.monument_id]
         if (!existing || new Date(insp.created_at) > new Date(existing.created_at)) {
-          byMonument[insp.monument_id] = insp
+          byMonument[insp.monument_id] = { ...insp }
         }
       })
+
+      // Link reports to their respective inspections for correct status derived 
+      const reportList = reportsData.results || []
+      reportList.forEach((rep: any) => {
+        const insp = byMonument[rep.monument_id]
+        if (insp && insp.inspection_id === rep.inspection_id) {
+          (insp as any).report = rep
+        }
+      })
+
       setInspectionsByMonument(byMonument)
     } catch (err) {
       console.error(err)
@@ -67,16 +77,8 @@ export default function InspectorDashboard() {
     }
   }
 
-  // ── Assignment status helpers ──────────────────────────────
 
-  const getAssignmentStatus = (monumentId: number): string => {
-    const insp = inspectionsByMonument[monumentId]
-    if (!insp) return 'pending'
-    if (insp.status === 'completed' || (insp as any).report) return 'completed'
-    if (insp.status === 'submitted' || insp.status === 'acknowledged') return 'submitted'
-    if (insp.status === 'in_progress' || insp.status === 'draft') return 'in_progress'
-    return 'pending'
-  }
+  // ── Assignment status helpers ──────────────────────────────
 
   const assignmentBadgeStyle = (status: string) =>
     ({
@@ -162,11 +164,18 @@ export default function InspectorDashboard() {
               <h1 className="text-4xl font-heading text-foreground mb-2">Inspector Portal</h1>
               <p className="text-muted-foreground">Welcome back, {user?.full_name}. Here is your fieldwork overview.</p>
             </div>
-            <Link to="/inspect/new">
-              <Button className="shadow-lg shadow-primary/20">
-                <Plus className="w-4 h-4 mr-2" /> New Inspection
-              </Button>
-            </Link>
+            <div className="flex gap-3">
+              <Link to="/risk-lab">
+                <Button variant="outline" className="border-copper-light/30 text-copper-light hover:bg-copper-light/5">
+                  <FlaskConical className="w-4 h-4 mr-2" /> Risk Lab
+                </Button>
+              </Link>
+              <Link to="/inspect/new">
+                <Button className="shadow-lg shadow-primary/20">
+                  <Plus className="w-4 h-4 mr-2" /> New Inspection
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* ── Stat Cards ─────────────────────────────────────── */}
@@ -290,10 +299,14 @@ export default function InspectorDashboard() {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-1.5 text-[10px]">
-                            {rep.status === 'validated'
-                              ? <CheckCircle2 className="w-3 h-3 text-safe" />
+                            {rep.status === 'validated' || rep.status === 'final'
+                              ? <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                               : <Clock className="w-3 h-3 text-muted-foreground" />}
-                            <span className="uppercase tracking-wider font-semibold">{rep.status}</span>
+                            <span className={`uppercase tracking-wider font-semibold ${
+                              rep.status === 'validated' || rep.status === 'final' ? 'text-emerald-600' : 'text-muted-foreground'
+                            }`}>
+                              {rep.status === 'final' ? 'COMPLETED' : rep.status}
+                            </span>
                           </div>
                         </td>
                         <td className="p-4 text-right">
@@ -339,7 +352,6 @@ export default function InspectorDashboard() {
 
               <div className="space-y-4">
                 {assignments.filter(a => a.status !== 'completed').map((a, i) => {
-                  const derivedStatus = getAssignmentStatus(a.monument_id)
                   const latestInsp = inspectionsByMonument[a.monument_id]
                   return (
                     <motion.div
@@ -361,15 +373,15 @@ export default function InspectorDashboard() {
                             <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                               <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Due: {new Date(a.due_date).toLocaleDateString()}</span>
                               {/* Real derived status badge */}
-                              <span className={`text-[10px] font-medium tracking-wider uppercase rounded-full px-2.5 py-0.5 ${assignmentBadgeStyle(derivedStatus)}`}>
-                                {assignmentBadgeLabel(derivedStatus)}
+                              <span className={`text-[10px] font-medium tracking-wider uppercase rounded-full px-2.5 py-0.5 ${assignmentBadgeStyle(a.status)}`}>
+                                {assignmentBadgeLabel(a.status)}
                               </span>
                             </div>
                           </div>
                         </div>
 
                         <div className="flex gap-2">
-                          {derivedStatus === 'completed' && latestInsp ? (
+                          {a.status === 'completed' && latestInsp ? (
                             <button
                               onClick={() => {
                                 const report = (latestInsp as any).report
@@ -381,16 +393,16 @@ export default function InspectorDashboard() {
                               <FileText className="w-3.5 h-3.5" />
                               View Report
                             </button>
-                          ) : derivedStatus !== 'submitted' ? (
+                          ) : a.status !== 'submitted' ? (
                             <button
                               onClick={() => navigate(
                                 latestInsp
                                   ? `/inspect/${latestInsp.inspection_id}`
-                                  : `/inspect/new?monument_id=${a.monument_id}&assignment_id=${a.assignment_id}`
+                                  : `/inspect/new?monument_id=${a.monument_id}`
                               )}
                               className="text-xs font-medium tracking-wider uppercase border border-stone-300 rounded-md px-3 py-1.5 hover:bg-stone-50 transition-colors"
                             >
-                              {derivedStatus === 'in_progress' ? 'Continue' : 'Start Inspection'}
+                              {a.status === 'in_progress' ? 'Continue' : 'Start Inspection'}
                             </button>
                           ) : null}
                         </div>

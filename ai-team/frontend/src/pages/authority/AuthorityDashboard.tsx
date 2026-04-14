@@ -4,7 +4,7 @@ import { notificationService, Notification } from '../../services/notificationSe
 import { inspectionService } from '../../services/inspectionService'
 import { useAuth } from '../../context/AuthContext'
 import PageTransition from '../../components/ui/PageTransition'
-import { ShieldAlert, Bell, FileText, Check, AlertTriangle, ChevronRight, Eye, Search } from 'lucide-react'
+import { ShieldAlert, Bell, FileText, Check, AlertTriangle, ChevronRight, Eye, Search, FlaskConical } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -110,6 +110,11 @@ export default function AuthorityDashboard() {
               <h1 className="text-4xl font-heading text-foreground mb-2">Authority Overview</h1>
               <p className="text-muted-foreground">Welcome back, {user?.full_name}. Here is the current risk profile across the region.</p>
             </div>
+            <Link to="/risk-lab">
+              <Button variant="outline" className="border-copper-light/30 text-copper-light hover:bg-copper-light/5">
+                <FlaskConical className="w-4 h-4 mr-2" /> Risk Lab
+              </Button>
+            </Link>
           </div>
 
           {/* TOP ROW: SUMMARY STATS */}

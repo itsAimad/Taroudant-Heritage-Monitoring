@@ -281,11 +281,22 @@ async def acknowledge_inspection(
     if not rows:
         raise HTTPException(404, 'Inspection not found.')
     
+    # 1. Update inspection status
     execute_write(conn,
         "UPDATE inspections SET status = 'acknowledged' WHERE inspection_id = %s",
         (inspection_id,))
     
-    # Mark related notifications as read for this authority
+    # 2. Automate report validation if report exists
+    # We set status to 'validated', record the validator (authority), and set the timestamp.
+    execute_write(conn, """
+        UPDATE reports 
+        SET status = 'validated', 
+            validated_by = %s, 
+            validated_at = NOW() 
+        WHERE inspection_id = %s AND status = 'final'
+    """, (current_user['id'], inspection_id))
+    
+    # 3. Mark related notifications as read for this authority
     execute_write(conn,
         "UPDATE notifications SET is_read = TRUE WHERE triggered_by_inspection = %s AND recipient_id = %s",
         (inspection_id, current_user['id']))
@@ -357,11 +368,14 @@ async def get_inspection_detail(
     # Fetch latest report for this inspection
     report_rows = execute_query(conn, """
         SELECT
-          report_id, title, risk_level,
-          total_score, status, created_at
-        FROM reports
-        WHERE inspection_id = %s
-        ORDER BY created_at DESC
+          r.report_id, r.title, r.risk_level,
+          r.total_score, r.status, r.created_at,
+          r.validated_by, r.validated_at,
+          u.full_name AS validated_by_name
+        FROM reports r
+        LEFT JOIN users u ON r.validated_by = u.id_user
+        WHERE r.inspection_id = %s
+        ORDER BY r.created_at DESC
         LIMIT 1
     """, (inspection_id,))
 

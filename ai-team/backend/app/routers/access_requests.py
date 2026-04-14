@@ -55,9 +55,9 @@ async def submit_request(
     req_id = execute_write(
         conn,
         '''INSERT INTO access_requests
-           (full_name, email, organization, requested_role_id, reason, status)
-           VALUES (%s, %s, %s, %s, %s, 'pending')''',
-        (data.full_name, data.email, data.organization,
+           (full_name, email, phone, organization, requested_role_id, reason, status)
+           VALUES (%s, %s, %s, %s, %s, %s, 'pending')''',
+        (data.full_name, data.email, data.phone, data.organization,
          data.requested_role_id, data.reason)
     )
 
@@ -138,13 +138,11 @@ async def approve_request(
     expiry = datetime.now(timezone.utc) + timedelta(hours=48)
 
     # 4. Create placeholder user account
-    # placeholders: full_name(%s), email(%s), password_hash(''), role_id(%s), organization(%s), completion_token(%s), completion_token_expiry(%s), is_active(FALSE)
-    # count: 6 placeholders
     execute_write(
         conn,
-        '''INSERT INTO users (full_name, email, password_hash, role_id, organization, completion_token, completion_token_expiry, is_active)
-           VALUES (%s, %s, '', %s, %s, %s, %s, FALSE)''',
-        (req['full_name'], req['email'], req['requested_role_id'], req['organization'], token, expiry)
+        '''INSERT INTO users (full_name, email, password_hash, role_id, organization, phone, completion_token, completion_token_expiry, is_active)
+           VALUES (%s, %s, '', %s, %s, %s, %s, %s, FALSE)''',
+        (req['full_name'], req['email'], req['requested_role_id'], req['organization'], req['phone'], token, expiry)
     )
 
     # 5. UPDATE access_requests

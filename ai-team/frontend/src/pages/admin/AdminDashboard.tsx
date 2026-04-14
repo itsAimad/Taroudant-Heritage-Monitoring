@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { adminService } from '../../services/adminService'
 import { useAuth } from '../../context/AuthContext'
 import PageTransition from '../../components/ui/PageTransition'
-import { Check, X, Shield, Users, Activity, FileText, BarChart3, PieChart as PieIcon } from 'lucide-react'
+import { Check, X, Shield, Users, Activity, FileText, BarChart3, PieChart as PieIcon, FlaskConical } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -156,11 +156,18 @@ export default function AdminDashboard() {
               <h1 className="font-heading text-3xl text-foreground mb-2">System Administration</h1>
               <p className="text-muted-foreground">Manage users, view assignments, and audit system activity.</p>
             </div>
-            <Link to="/admin/users">
-              <Button>
-                <Users className="h-4 w-4 mr-2" /> Manage Users
-              </Button>
-            </Link>
+            <div className="flex gap-3">
+              <Link to="/risk-lab">
+                <Button variant="outline" className="border-copper-light/30 text-copper-light hover:bg-copper-light/5">
+                  <FlaskConical className="w-4 h-4 mr-2" /> Risk Lab
+                </Button>
+              </Link>
+              <Link to="/admin/users">
+                <Button>
+                  <Users className="h-4 w-4 mr-2" /> Manage Users
+                </Button>
+              </Link>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

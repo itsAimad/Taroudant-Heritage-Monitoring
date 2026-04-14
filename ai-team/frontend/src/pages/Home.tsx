@@ -313,7 +313,7 @@ const Home = () => {
                       <div className="absolute inset-0 bg-gradient-to-tr from-stone-900/40 via-transparent to-stone-700/40" />
                       <div className="flex h-full w-full items-center justify-center px-4 text-center">
                         <span className="text-[11px] text-sand/30">
-                          Pisé earthen wall texture detail, Section 4
+                          <img src="/assets/Sedra_Gate.png" alt="Sedra Gate" className="fit-cover object-cover object-center rounded-sm w-[360px] h-[280px]" />
                         </span>
                       </div>
                     </div>
@@ -329,7 +329,7 @@ const Home = () => {
                     <div className="absolute inset-0 bg-gradient-to-b from-stone-900/50 via-transparent to-stone-900/70" />
                     <div className="flex h-full w-full items-center justify-center px-4 text-center">
                       <span className="text-[11px] text-sand/30">
-                        Aerial view, Taroudant medina from the south
+                        <img src="/assets/Selsla_gate.png" alt="Selsla Gate" className="object-cover object-fit rounded-sm w-[560px] h-[280px]" />
                       </span>
                     </div>
                   </div>
@@ -523,11 +523,11 @@ const Home = () => {
                         {m.last_inspection_display
                           ?? (m.last_inspection
                             ? new Date(m.last_inspection).toLocaleDateString('en-GB', {
-                                weekday: 'long',
-                                day: '2-digit',
-                                month: 'long',
-                                year: 'numeric',
-                              })
+                              weekday: 'long',
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric',
+                            })
                             : null)
                           ?? '—'}
                       </span>

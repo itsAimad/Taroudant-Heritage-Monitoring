@@ -26,6 +26,24 @@ END $$
 
 
 -- ==========================================================
+-- Trigger: after_inspection_insert
+-- Purpose: Automatically update assignment to 'in_progress'
+-- ==========================================================
+DROP TRIGGER IF EXISTS after_inspection_insert $$
+CREATE TRIGGER after_inspection_insert
+AFTER INSERT ON inspections
+FOR EACH ROW
+BEGIN
+  -- If there's an active assignment for this inspector and monument, mark it in_progress
+  UPDATE inspector_assignments
+  SET status = 'in_progress'
+  WHERE monument_id = NEW.monument_id
+    AND inspector_id = NEW.inspector_id
+    AND status = 'pending';
+END $$
+
+
+-- ==========================================================
 -- Trigger: after_score_insert
 -- Purpose: When a high-risk or critical score is stored, automatically
 --          notify all users with the 'authority' role
@@ -90,6 +108,14 @@ CREATE TRIGGER after_report_insert
 AFTER INSERT ON reports
 FOR EACH ROW
 BEGIN
+  -- 1. Automate assignment completion
+  UPDATE inspector_assignments
+  SET status = 'completed'
+  WHERE monument_id = NEW.monument_id
+    AND inspector_id = NEW.generated_by
+    AND status IN ('pending', 'in_progress');
+
+  -- 2. Audit log for report generation
   INSERT INTO audit_logs (
     user_id,
     action,
@@ -103,7 +129,7 @@ BEGIN
     'REPORT_GENERATED',
     'reports',
     NEW.report_id,
-    NULL, -- IP address can be injected by application layer if available
+    NULL,
     CONCAT(
       'Report generated for monument_id: ',
       NEW.monument_id,

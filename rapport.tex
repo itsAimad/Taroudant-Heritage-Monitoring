@@ -1,0 +1,746 @@
+\documentclass[12pt,a4paper]{article}
+% ---------------- Packages (French-ready) -----------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{titling}
+\usepackage{lmodern}
+\usepackage{listings}
+
+% ---------------- Diagrams Packages -----------------
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc, fit, backgrounds, shadows}
+\usepackage{adjustbox}
+\tikzset{
+  table/.style={
+    rectangle, draw=black, thick,
+    minimum width=3cm, minimum height=0.8cm,
+    align=center, fill=blue!5, font=\ttfamily\small
+  },
+  pk/.style={
+    rectangle, draw=black, thick,
+    minimum width=3cm, minimum height=0.6cm,
+    align=center, fill=red!15, font=\ttfamily\small\bfseries
+  },
+  fk/.style={
+    rectangle, draw=black, thick,
+    minimum width=3cm, minimum height=0.6cm,
+    align=center, fill=orange!10, font=\ttfamily\small
+  },
+  entity/.style={
+    rectangle, draw=black, thick,
+    rounded corners=3pt,
+    minimum width=4cm, minimum height=0.8cm,
+    align=center, fill=blue!15, font=\bfseries
+  },
+  relationship/.style={
+    diamond, draw=black, thick, aspect=2,
+    align=center, fill=yellow!20, font=\small
+  },
+  arrow/.style={
+    ->, >=stealth, thick
+  },
+  apiendpoint/.style={
+    rectangle, draw=black, thick, rounded corners=2pt,
+    minimum width=6cm, minimum height=0.6cm,
+    align=left, fill=green!5, font=\ttfamily\small
+  },
+  methodget/.style={fill=blue!20, text=blue!70!black},
+  methodpost/.style={fill=green!20, text=green!50!black},
+  methodput/.style={fill=orange!20, text=orange!60!black},
+  methoddelete/.style={fill=red!20, text=red!60!black}
+}
+
+\geometry{
+  left=2.5cm,
+  right=2.5cm,
+  top=2.5cm,
+  bottom=2.5cm
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue,
+    pdfauthor={Carl, Jaden},
+    pdftitle={Taroudant Heritage Monitoring},
+    pdflanguage={fr}
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10}
+}
+
+\begin{document}
+% -------------------- Cover page -----------------------
+\begin{titlepage}
+    \vspace*{\fill}
+    \begin{center}
+        {\Huge\bfseries Taroudant Heritage Monitoring \par}
+        \vspace{1.2cm}
+        {\Large\itshape Monitoring et valorisation du patrimoine de Taroudant \par}
+    \end{center}
+    \vspace*{\fill}
+    \noindent
+    \begin{minipage}[t]{0.45\textwidth}
+        \raggedright
+        \textbf{Étudiants}\\
+        Carl \\
+        Jaden
+    \end{minipage}
+    \hfill
+    \begin{minipage}[t]{0.45\textwidth}
+        \raggedleft
+        \textbf{Encadrant}\\
+        James
+    \end{minipage}
+    \vspace{2cm}
+\end{titlepage}
+% -------------------- Abstract -----------------------
+\begin{abstract}
+Le suivi du patrimoine bâti de Taroudant repose actuellement sur des procédures manuelles, longues et sujettes à erreurs. Ce projet propose une solution numérique centralisant les données de chaque monument, automatisant la collecte d'informations et fournissant des visualisations en temps réel. L'application permet ainsi de réduire considérablement le temps d'inspection, d'améliorer la traçabilité des interventions et d'offrir aux décideurs une vision claire et actualisée du patrimoine.
+\end{abstract}
+\clearpage
+% ------------------ Table of contents -----------------
+\tableofcontents
+\clearpage
+% -------------------- Body sections -----------------
+\section{Introduction}
+
+Ce projet vise à développer un système de surveillance et de valorisation du patrimoine bâti de la ville de Taroudant, au Maroc. L'application permet aux autorités municipales de suivre l'état des monuments historiques et des remparts, d'identifier les risques structurels et de prendre des décisions éclairées pour la préservation du patrimoine culturel.
+
+Le système offre une plateforme centralisée qui automatise la collecte des données d'inspection, fournit des analyses en temps réel et génère des rapports détaillés pour les décideurs.
+
+\section{Présentation du projet}
+
+Le projet Taroudant Heritage Shield est un système complet de gestion du patrimoine comprenant:
+
+\begin{itemize}
+    \item Une application web moderne avec React et Vite
+    \item Un backend API développé avec FastAPI (Python)
+    \item Une base de données MySQL avec procédures stockées et triggers
+    \item Des fonctionnalités de sécurité avancées (JWT, RBAC, AES-256)
+    \item Un système de scoring automatique de la vulnérabilité structurelle
+    \item Des alertes pour les autorités en cas de risque critique
+\end{itemize}
+
+Le système permet de:
+\begin{itemize}
+    \item Surveiller les monuments historiques et les remparts de Taroudant
+    \item Scorer automatiquement la vulnérabilité structurelle à partir des inspections sur le terrain
+    \item Alerter les autorités municipales lorsqu'un risque critique est détecté
+    \item Fournir des rapports d'experts chiffrés pour les décideurs
+    \item Afficher un catalogue public de l'état de santé des monuments pour les citoyens
+\end{itemize}
+
+\section{Architecture du système}
+
+L'architecture du système suit une approche moderne en trois couches:
+
+\subsection{Frontend}
+\begin{itemize}
+    \item \textbf{Framework}: React 18 avec TypeScript
+    \item \textbf{Build tool}: Vite pour un développement rapide
+    \item \textbf{Styling}: Tailwind CSS avec composants Radix UI
+    \item \textbf{State Management}: React Query pour la gestion d'état serveur
+    \item \textbf{Formulaires}: React Hook Form avec validation Zod
+    \item \textbf{Visualisation}: Recharts pour les graphiques, Leaflet pour les cartes
+    \item \textbf{3D}: React Three Fiber pour les visualisations 3D
+\end{itemize}
+
+\subsection{Backend}
+\begin{itemize}
+    \item \textbf{Framework}: FastAPI (Python) avec Uvicorn
+    \item \textbf{Authentification}: JWT avec tokens de rafraîchissement
+    \item \textbf{Sécurité}: bcrypt pour les mots de passe, AES-256 pour les données sensibles
+    \item \textbf{Email}: fastapi-mail pour les notifications
+    \item \textbf{PDF}: fpdf2 pour la génération de rapports
+\end{itemize}
+
+\subsection{Base de données}
+\begin{itemize}
+    \item \textbf{SGBD}: MySQL 8.0
+    \item \textbf{Modélisation}: Schéma en 3NF (Troisième Forme Normale)
+    \item \textbf{Procédures stockées}: Pour les opérations complexes
+    \item \textbf{Triggers}: Pour la gestion automatique des scores de vulnérabilité
+    \item \textbf{RBAC}: Gestion des rôles et permissions
+\end{itemize}
+
+\section{Modèle Conceptuel de Données (DCM)}
+
+Le schéma de la base de données comprend les entités principales suivantes:
+
+\begin{itemize}
+    \item \textbf{roles}: Définit les rôles pour le contrôle d'accès basé sur les rôles (RBAC)
+    \item \textbf{users}: Stocke les utilisateurs système (administrateurs, inspecteurs, autorités, observateurs)
+    \item \textbf{monument\_categories}: Normalise la classification des monuments (murs, portes, mosquées, etc.)
+    \item \textbf{monuments}: Entité centrale représentant chaque monument patrimonial surveillé
+    \item \textbf{inspections}: Enregistre les inspections effectuées sur les monuments
+    \item \textbf{cracks}: Suit les fissures identifiées lors des inspections
+    \item \textbf{crack\_photos}: Stocke les photos des fissures
+    \item \textbf{reports}: Rapports générés pour les décideurs
+    \item \textbf{notifications}: Système d'alertes pour les utilisateurs
+    \item \textbf{access\_requests}: Gestion des demandes d'accès au système
+    \item \textbf{inspector\_assignments}: Attribution des inspecteurs aux monuments
+\end{itemize}
+
+\section{Points de terminaison de l'API}
+
+L'API RESTful expose les endpoints suivants:
+
+\subsection{Authentification}
+\begin{itemize}
+    \item \texttt{POST /api/login} -- Connexion utilisateur
+    \item \texttt{POST /api/logout} -- Déconnexion
+    \item \texttt{POST /api/token/refresh} -- Rafraîchissement du token
+    \item \texttt{GET /api/verify-token} -- Vérification du token
+    \item \texttt{POST /api/complete-account} -- Complétion du compte
+    \item \texttt{GET /api/me} -- Profil utilisateur connecté
+\end{itemize}
+
+\subsection{Monuments}
+\begin{itemize}
+    \item \texttt{GET /api/monuments} -- Liste des monuments
+    \item \texttt{GET /api/monuments/:id} -- Détails d'un monument
+    \item \texttt{POST /api/monuments} -- Créer un monument
+    \item \texttt{PUT /api/monuments/:id} -- Modifier un monument
+    \item \texttt{DELETE /api/monuments/:id} -- Supprimer un monument
+    \item \texttt{GET /api/monuments/:id/inspections} -- Inspections d'un monument
+    \item \texttt{GET /api/monuments/:id/inspections/public} -- Inspections publiques
+    \item \texttt{GET /api/monuments/:id/image} -- Image d'un monument
+\end{itemize}
+
+\subsection{Inspections}
+\begin{itemize}
+    \item \texttt{GET /api/inspections} -- Liste des inspections
+    \item \texttt{POST /api/inspections} -- Créer une inspection
+    \item \texttt{GET /api/inspections/:id} -- Détails d'une inspection
+    \item \texttt{GET /api/inspections/:id/detail} -- Détails complets
+\end{itemize}
+
+\subsection{Fissures (Cracks)}
+\begin{itemize}
+    \item \texttt{POST /api/cracks} -- Créer une fissure
+    \item \texttt{POST /api/cracks/:id/photo} -- Ajouter une photo
+    \item \texttt{GET /api/cracks/:id/photos} -- Photos d'une fissure
+    \item \texttt{GET /api/cracks/:id/image} -- Image d'une fissure
+    \item \texttt{GET /api/cracks/inspection/:id} -- Fissures par inspection
+\end{itemize}
+
+\subsection{Rapports}
+\begin{itemize}
+    \item \texttt{POST /api/reports} -- Générer un rapport
+    \item \texttt{GET /api/reports} -- Liste des rapports
+    \item \texttt{GET /api/reports/:id} -- Détails d'un rapport
+    \item \texttt{GET /api/reports/:id/pdf} -- Télécharger PDF
+\end{itemize}
+
+\subsection{Utilisateurs et Administration}
+\begin{itemize}
+    \item \texttt{POST /api/users} -- Créer un utilisateur
+    \item \texttt{GET /api/users} -- Liste des utilisateurs
+    \item \texttt{GET /api/admin/audit-logs} -- Journaux d'audit
+    \item \texttt{GET /api/admin/stats} -- Statistiques
+\end{itemize}
+
+\subsection{Notifications et Affectations}
+\begin{itemize}
+    \item \texttt{GET /api/notifications} -- Notifications utilisateur
+    \item \texttt{GET /api/notifications/triggered} -- Alertes déclenchées
+    \item \texttt{POST /api/assignments} -- Affecter un inspecteur
+    \item \texttt{GET /api/assignments} -- Liste des affectations
+    \item \texttt{PUT /api/assignments/:id/status} -- Mettre à jour le statut
+\end{itemize}
+
+\subsection{Demandes d'accès}
+\begin{itemize}
+    \item \texttt{POST /api/access-requests} -- Demander l'accès
+    \item \texttt{GET /api/access-requests} -- Liste des demandes
+    \item \texttt{POST /api/access-requests/:id/approve} -- Approuver
+    \item \texttt{POST /api/access-requests/:id/reject} -- Rejeter
+\end{itemize}
+
+\subsection{Analytiques}
+\begin{itemize}
+    \item \texttt{GET /api/analytics} -- Données analytiques
+\end{itemize}
+
+\section{Sécurité}
+
+Le système implémente plusieurs couches de sécurité:
+
+\begin{itemize}
+    \item \textbf{Authentification JWT}: Tokens d'accès avec expiration, tokens de rafraîchissement
+    \item \textbf{RBAC}: Contrôle d'accès basé sur les rôles (admin, inspector, authority, viewer)
+    \item \textbf{Encryption}: AES-256 pour les données sensibles, bcrypt pour les mots de passe
+    \item \textbf{CORS}: Configuré pour permettre les credentials (cookies httpOnly)
+    \item \textbf{Validation}: Pydantic pour la validation des entrées
+    \item \textbf{Audit}: Journaux d'audit pour les actions sensibles
+\end{itemize}
+
+% ============================================================
+% NEW: Technical Diagrams Section
+% ============================================================
+\clearpage
+\section{Diagrammes Techniques}
+
+\subsection{Diagramme des Endpoints API}
+
+La figure~\ref{fig:api-diagram} présente l'architecture RESTful de l'API avec les différentes catégories d'endpoints et leurs méthodes HTTP.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.3cm and 1cm,
+    every node/.style={font=\small}
+]
+
+% Header
+\node[draw, fill=gray!30, thick, minimum width=14cm, minimum height=0.8cm] (header) {\textbf{API RESTful - Taroudant Heritage Shield}};
+
+% Auth Section
+\node[draw, fill=blue!10, thick, below=0.5cm of header, minimum width=3cm, minimum height=0.6cm, xshift=-5cm] (auth) {\textbf{Authentification}};
+\node[apiendpoint, methodpost, below=0.1cm of auth, minimum width=4.5cm] (login) {POST /api/login};
+\node[apiendpoint, methodpost, below=0.1cm of login, minimum width=4.5cm] (logout) {POST /api/logout};
+\node[apiendpoint, methodget, below=0.1cm of logout, minimum width=4.5cm] (verify) {GET /api/verify-token};
+
+% Monuments Section
+\node[draw, fill=green!10, thick, right=0.3cm of auth, minimum width=3cm, minimum height=0.6cm] (mon) {\textbf{Monuments}};
+\node[apiendpoint, methodget, below=0.1cm of mon, minimum width=4.5cm] (mon1) {GET /api/monuments};
+\node[apiendpoint, methodpost, below=0.1cm of mon1, minimum width=4.5cm] (mon2) {POST /api/monuments};
+\node[apiendpoint, methodput, below=0.1cm of mon2, minimum width=4.5cm] (mon3) {PUT /api/monuments/:id};
+\node[apiendpoint, methoddelete, below=0.1cm of mon3, minimum width=4.5cm] (mon4) {DELETE /api/monuments/:id};
+
+% Inspections Section
+\node[draw, fill=orange!10, thick, right=0.3cm of mon, minimum width=3cm, minimum height=0.6cm] (ins) {\textbf{Inspections}};
+\node[apiendpoint, methodget, below=0.1cm of ins, minimum width=4.5cm] (ins1) {GET /api/inspections};
+\node[apiendpoint, methodpost, below=0.1cm of ins1, minimum width=4.5cm] (ins2) {POST /api/inspections};
+\node[apiendpoint, methodget, below=0.1cm of ins2, minimum width=4.5cm] (ins3) {GET /api/inspections/:id};
+
+% Cracks Section (below auth)
+\node[draw, fill=red!10, thick, below=2.5cm of auth, minimum width=3cm, minimum height=0.6cm] (crack) {\textbf{Fissures}};
+\node[apiendpoint, methodpost, below=0.1cm of crack, minimum width=4.5cm] (crk1) {POST /api/cracks};
+\node[apiendpoint, methodpost, below=0.1cm of crk1, minimum width=4.5cm] (crk2) {POST /api/cracks/:id/photo};
+\node[apiendpoint, methodget, below=0.1cm of crk2, minimum width=4.5cm] (crk3) {GET /api/cracks/:id/photos};
+
+% Reports Section
+\node[draw, fill=purple!10, thick, right=0.3cm of crack, minimum width=3cm, minimum height=0.6cm] (rep) {\textbf{Rapports}};
+\node[apiendpoint, methodpost, below=0.1cm of rep, minimum width=4.5cm] (rep1) {POST /api/reports};
+\node[apiendpoint, methodget, below=0.1cm of rep1, minimum width=4.5cm] (rep2) {GET /api/reports};
+\node[apiendpoint, methodget, below=0.1cm of rep2, minimum width=4.5cm] (rep3) {GET /api/reports/:id/pdf};
+
+% Admin Section
+\node[draw, fill=gray!10, thick, right=0.3cm of rep, minimum width=3cm, minimum height=0.6cm] (adm) {\textbf{Admin}};
+\node[apiendpoint, methodget, below=0.1cm of adm, minimum width=4.5cm] (adm1) {GET /api/admin/stats};
+\node[apiendpoint, methodget, below=0.1cm of adm1, minimum width=4.5cm] (adm2) {GET /api/admin/audit-logs};
+\node[apiendpoint, methodpost, below=0.1cm of adm2, minimum width=4.5cm] (adm3) {POST /api/users};
+
+\end{tikzpicture}
+\caption{Diagramme architectural des endpoints API RESTful}
+\label{fig:api-diagram}
+\end{figure}
+
+\subsection{Schéma Entité-Relation (ER)}
+
+La figure~\ref{fig:er-diagram} présente le schéma entité-relation de la base de données avec les relations entre les tables principales.
+
+\begin{figure}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tikzpicture}[
+    node distance=0.5cm and 1.5cm,
+    every node/.style={font=\small}
+]
+
+% Users Entity
+\node[entity] (users) {users};
+\node[pk, below=0cm of users] (pk1) {\underline{id\_user} PK};
+\node[table, below=0cm of pk1] (u1) {full\_name};
+\node[table, below=0cm of u1] (u2) {email};
+\node[fk, below=0cm of u2] (u3) {role\_id FK};
+\node[table, below=0cm of u3] (u4) {password\_hash};
+
+% Roles Entity
+\node[entity, right=3cm of users] (roles) {roles};
+\node[pk, below=0cm of roles] (pk2) {\underline{role\_id} PK};
+\node[table, below=0cm of pk2] (r1) {role\_name};
+\node[table, below=0cm of r1] (r2) {description};
+
+% Monuments Entity
+\node[entity, below=3cm of users] (monuments) {monuments};
+\node[pk, below=0cm of monuments] (pk3) {\underline{monument\_id} PK};
+\node[table, below=0cm of pk3] (m1) {name};
+\node[table, below=0cm of m1] (m2) {location};
+\node[fk, below=0cm of m2] (m3) {category\_id FK};
+\node[table, below=0cm of m3] (m4) {status};
+
+% Categories Entity
+\node[entity, below=3cm of roles] (categories) {monument\_categories};
+\node[pk, below=0cm of categories] (pk4) {\underline{category\_id} PK};
+\node[table, below=0cm of pk4] (c1) {category\_name};
+
+% Inspections Entity
+\node[entity, below=3cm of monuments] (inspections) {inspections};
+\node[pk, below=0cm of inspections] (pk5) {\underline{inspection\_id} PK};
+\node[fk, below=0cm of pk5] (i1) {monument\_id FK};
+\node[fk, below=0cm of i1] (i2) {inspector\_id FK};
+\node[table, below=0cm of i2] (i3) {inspection\_date};
+
+% Cracks Entity
+\node[entity, right=3.5cm of inspections] (cracks) {cracks};
+\node[pk, below=0cm of cracks] (pk6) {\underline{crack\_id} PK};
+\node[fk, below=0cm of pk6] (ck1) {inspection\_id FK};
+\node[table, below=0cm of ck1] (ck2) {severity};
+\node[table, below=0cm of ck2] (ck3) {length\_cm};
+
+% Vulnerability Scores
+\node[entity, below=3cm of inspections] (scores) {vulnerability\_scores};
+\node[pk, below=0cm of scores] (pk7) {\underline{score\_id} PK};
+\node[fk, below=0cm of pk7] (s1) {monument\_id FK};
+\node[fk, below=0cm of s1] (s2) {inspection\_id FK};
+\node[table, below=0cm of s2] (s3) {total\_score};
+\node[table, below=0cm of s3] (s4) {risk\_level};
+
+% Reports
+\node[entity, right=3.5cm of scores] (reports) {reports};
+\node[pk, below=0cm of reports] (pk8) {\underline{report\_id} PK};
+\node[fk, below=0cm of pk8] (rp1) {monument\_id FK};
+\node[fk, below=0cm of rp1] (rp2) {inspection\_id FK};
+\node[fk, below=0cm of rp2] (rp3) {generated\_by FK};
+
+% Notifications
+\node[entity, below=3cm of scores] (notif) {notifications};
+\node[pk, below=0cm of notif] (pk9) {\underline{notification\_id} PK};
+\node[fk, below=0cm of pk9] (n1) {monument\_id FK};
+\node[fk, below=0cm of n1] (n2) {recipient\_id FK};
+\node[table, below=0cm of n2] (n3) {severity};
+
+% Relationships
+\draw[arrow] (u3.east) -- (pk2.west) node[midway, above, font=\tiny] {N:1};
+\draw[arrow] (m3.east) -- (pk4.west) node[midway, above, font=\tiny] {N:1};
+\draw[arrow] (i1.west) -- ++(-0.5,0) |- (pk3.west) node[pos=0.75, left, font=\tiny] {N:1};
+\draw[arrow] (i2.east) -- ++(0.5,0) |- (pk1.east) node[pos=0.75, right, font=\tiny] {N:1};
+\draw[arrow] (ck1.west) -- (i3.east) node[midway, above, font=\tiny] {N:1};
+\draw[arrow] (s1.west) -- ++(-0.5,0) |- (m4.west) node[pos=0.75, left, font=\tiny] {1:N};
+\draw[arrow] (s2.east) -- ++(0.5,0) |- (i3.south) node[pos=0.75, right, font=\tiny] {1:1};
+\draw[arrow] (rp1.north) -- ++(0,0.5) -| (m4.south) node[pos=0.75, below, font=\tiny] {N:1};
+\draw[arrow] (rp2.north) -- (i3.south) node[midway, left, font=\tiny] {1:1};
+\draw[arrow] (rp3.east) -- ++(0.5,0) |- (pk1.south) node[pos=0.75, right, font=\tiny] {N:1};
+\draw[arrow] (n1.west) -- ++(-0.5,0) |- (m4.south east) node[pos=0.75, right, font=\tiny] {N:1};
+\draw[arrow] (n2.east) -- ++(1,0) |- (u4.south) node[pos=0.75, right, font=\tiny] {N:1};
+
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Schéma Entité-Relation (ER) de la base de données}
+\label{fig:er-diagram}
+\end{figure}
+
+\subsection{Justification de la 3ème Forme Normale (3NF)}
+
+La base de données a été conçue selon la \textbf{Troisième Forme Normale (3NF)} pour éliminer la redondance et garantir l'intégrité des données. Voici les justifications:
+
+\begin{table}[H]
+\centering
+\caption{Analyse de normalisation par table}
+\label{tab:3nf-analysis}
+\begin{tabular}{|p{3.5cm}|p{4cm}|p{5cm}|}
+\hline
+\textbf{Table} & \textbf{Dépendances} & \textbf{Justification 3NF} \\
+\hline
+\texttt{roles} & role\_id $\rightarrow$ role\_name, description & Aucune dépendance transitive. Clé primaire unique. \\
+\hline
+\texttt{users} & id\_user $\rightarrow$ tous les attributs & role\_id est une clé étrangère vers \texttt{roles}. Pas de dépendance transitive. \\
+\hline
+\texttt{monument\_categories} & category\_id $\rightarrow$ category\_name & Normalisée. Valeurs discrètes extraites dans une table dédiée. \\
+\hline
+\texttt{monuments} & monument\_id $\rightarrow$ tous les attributs & category\_id référence \texttt{categories}. Aucun attribut ne dépend d'un autre attribut non-clé. \\
+\hline
+\texttt{inspections} & inspection\_id $\rightarrow$ tous les attributs & monument\_id et inspector\_id sont des FK. Date et notes dépendent uniquement de l'inspection. \\
+\hline
+\texttt{cracks} & crack\_id $\rightarrow$ tous les attributs & inspection\_id est FK. Les attributs severity/length dépendent uniquement du crack. \\
+\hline
+\texttt{vulnerability\_scores} & score\_id $\rightarrow$ tous les attributs & monument\_id et inspection\_id sont des FK. Le score est calculé et stocké indépendamment. \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Principales décisions de normalisation:}
+\begin{itemize}
+    \item \textbf{Extraction des catégories:} Les catégories de monuments sont isolées dans \texttt{monument\_categories} pour éviter la répétition des noms de catégories.
+    \item \textbf{Séparation des rôles:} Les rôles utilisateurs (admin, inspector, authority) sont normalisés dans \texttt{roles} pour faciliter la gestion RBAC.
+    \item \textbf{Élimination des groupes répétitifs:} Les fissures (\texttt{cracks}) sont stockées dans une table séparée liée aux inspections, plutôt que comme attributs multiples.
+    \item \textbf{Scores de vulnérabilité:} Les scores calculés sont stockés dans leur propre table avec référence aux inspections, permettant l'historisation.
+\end{itemize}
+
+\clearpage
+\section{Triggers et Procédures Stockées}
+
+Cette section décrit les \textbf{triggers} et \textbf{procédures stockées} implémentés dans la base de données MySQL, avec leurs objectifs respectifs.
+
+\subsection{Procédures Stockées}
+
+\subsubsection{CalculateVulnerabilityScore}
+
+\begin{table}[H]
+\centering
+\caption{Spécification de la procédure CalculateVulnerabilityScore}
+\begin{tabular}{|p{3cm}|p{10cm}|}
+\hline
+\textbf{Attribut} & \textbf{Valeur} \\
+\hline
+Nom & \texttt{CalculateVulnerabilityScore} \\
+\hline
+Paramètre & \texttt{p\_inspection\_id INT} \\
+\hline
+Objectif & Calculer automatiquement le score de vulnérabilité d'un monument basé sur son âge, les fissures détectées et la catégorie du monument. \\
+\hline
+Formule & $(\text{crack\_score} + \text{age\_score}) \times \text{category\_factor}$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Détails du calcul:}
+\begin{itemize}
+    \item \textbf{Crack Score:} Somme pondérée des fissures (mineure=1, modérée=3, majeure=7, critique=15), multipliée par un facteur de longueur.
+    \item \textbf{Age Multiplier:} $1.0 + \min(\text{age}/1000, 0.5)$ --- les fissures sur les monuments anciens sont plus critiques.
+    \item \textbf{Category Factor:} Ajustement selon le type (Rempart=0.8, Kasbah=0.85, Porte=0.9, Mosquée=1.0, Maison=1.2).
+    \item \textbf{Age Score:} $\min(\lfloor\text{age}/20\rfloor, 10)$ --- capé à 10 points.
+\end{itemize}
+
+\subsubsection{GenerateMonumentReport}
+
+\begin{table}[H]
+\centering
+\caption{Spécification de la procédure GenerateMonumentReport}
+\begin{tabular}{|p{3cm}|p{10cm}|}
+\hline
+\textbf{Attribut} & \textbf{Valeur} \\
+\hline
+Nom & \texttt{GenerateMonumentReport} \\
+\hline
+Paramètres & \texttt{p\_monument\_id INT, p\_inspection\_id INT, p\_generated\_by INT} \\
+\hline
+Objectif & Générer un rapport complet encrypté avec les informations du monument, de l'inspection et des statistiques de fissures. \\
+\hline
+Encryption & AES-256 avec clé dérivée SHA2 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Sections du rapport généré:}
+\begin{enumerate}
+    \item Informations sur le monument (nom, localisation, année de construction)
+    \item Synthèse de l'inspection (date, état global, observations)
+    \item Fissures observées (total, répartition par sévérité)
+    \item Vulnérabilité (scores âge/fissures/total, niveau de risque)
+    \item Recommandation selon le niveau de risque
+\end{enumerate}
+
+\subsection{Triggers}
+
+\begin{table}[H]
+\centering
+\caption{Liste des triggers et leurs objectifs}
+\label{tab:triggers}
+\begin{tabular}{|p{3.5cm}|p{2.5cm}|p{6.5cm}|}
+\hline
+\textbf{Nom du Trigger} & \textbf{Événement} & \textbf{Objectif} \\
+\hline
+\texttt{after\_crack\_insert} & AFTER INSERT sur \texttt{cracks} & Déclenche automatiquement le recalcul du score de vulnérabilité lorsqu'une nouvelle fissure est ajoutée. Maintient à jour l'évaluation du risque en temps réel. \\
+\hline
+\texttt{after\_score\_insert} & AFTER INSERT sur \texttt{vulnerability\_scores} & Génère des notifications automatiques pour les autorités (rôle 'authority') lorsqu'un score de risque 'high' ou 'critical' est inséré. \\
+\hline
+\texttt{after\_report\_insert} & AFTER INSERT sur \texttt{reports} & Crée une entrée dans \texttt{audit\_logs} pour tracer la génération de rapports (qui, quand, pour quel monument). \\
+\hline
+\texttt{after\_access\_request\_reviewed} & AFTER UPDATE sur \texttt{access\_requests} & Journalise dans \texttt{audit\_logs} les décisions d'approbation/rejet des demandes d'accès avec la note de révision. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Diagramme de Flux des Triggers}
+
+La figure~\ref{fig:trigger-flow} illustre le flux d'exécution des triggers dans le système.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1cm and 2cm,
+    every node/.style={font=\small},
+    process/.style={rectangle, draw, thick, rounded corners=3pt, fill=blue!10, minimum width=3cm, minimum height=0.8cm},
+    trigger/.style={rectangle, draw, thick, fill=red!15, minimum width=3cm, minimum height=0.8cm},
+    result/.style={rectangle, draw, thick, fill=green!10, minimum width=3cm, minimum height=0.8cm},
+    arrow/.style={->, >=stealth, thick}
+]
+
+% Insert Crack Flow
+\node[process] (ins1) {INSERT INTO cracks};
+\node[trigger, right=of ins1] (trig1) {after\_crack\_insert};
+\node[process, right=of trig1] (proc1) {CALL CalculateVulnerabilityScore};
+\node[result, below=of proc1] (res1) {Mise à jour du score};
+
+\draw[arrow] (ins1) -- (trig1);
+\draw[arrow] (trig1) -- (proc1);
+\draw[arrow] (proc1) -- (res1);
+
+% Insert Score Flow
+\node[trigger, below=0.8cm of res1] (trig2) {after\_score\_insert};
+\node[result, left=of trig2] (res2) {Notifications aux autorités};
+\node[process, left=of res2] (cond) {risque $\geq$ high ?};
+
+\draw[arrow] (res1) -- (trig2);
+\draw[arrow] (trig2) -- (cond);
+\draw[arrow] (cond) -- node[above] {oui} (res2);
+
+% Report Flow
+\node[process, below=1.5cm of cond] (rep) {INSERT INTO reports};
+\node[trigger, right=of rep] (trig3) {after\_report\_insert};
+\node[result, right=of trig3] (res3) {Audit log créé};
+
+\draw[arrow] (rep) -- (trig3);
+\draw[arrow] (trig3) -- (res3);
+
+\end{tikzpicture}
+\caption{Flux d'exécution des triggers dans le système}
+\label{fig:trigger-flow}
+\end{figure}
+
+\subsection{Exemple de Code SQL des Triggers}
+
+\begin{lstlisting}[language=SQL, caption=Trigger after\_crack\_insert - Recalcul automatique du score]
+CREATE TRIGGER after_crack_insert
+AFTER INSERT ON cracks
+FOR EACH ROW
+BEGIN
+  -- Delegate scoring logic to the stored procedure
+  CALL CalculateVulnerabilityScore(NEW.inspection_id);
+END;
+\end{lstlisting}
+
+\begin{lstlisting}[language=SQL, caption=Trigger after\_score\_insert - Notifications automatiques]
+CREATE TRIGGER after_score_insert
+AFTER INSERT ON vulnerability_scores
+FOR EACH ROW
+BEGIN
+  DECLARE v_authority_role_id INT;
+  DECLARE v_monument_name VARCHAR(150);
+
+  -- Only generate alerts for high or critical risks
+  IF NEW.risk_level IN ('high', 'critical') THEN
+    -- Find authority role and monument name
+    SELECT role_id INTO v_authority_role_id
+    FROM roles WHERE role_name = 'authority' LIMIT 1;
+
+    SELECT name INTO v_monument_name
+    FROM monuments WHERE monument_id = NEW.monument_id;
+
+    -- Insert notifications for all authority users
+    INSERT INTO notifications (monument_id, triggered_by_inspection,
+      recipient_id, message, severity, is_read, sent_at)
+    SELECT NEW.monument_id, NEW.inspection_id, u.id_user,
+      CONCAT('ALERTE: Monument [', v_monument_name,
+             '] - Niveau de risque: ', NEW.risk_level),
+      NEW.risk_level, FALSE, NOW()
+    FROM users u WHERE u.role_id = v_authority_role_id;
+  END IF;
+END;
+\end{lstlisting}
+
+\clearpage
+\section{Utilisation de l'Intelligence Artificielle dans le Projet}
+
+Afin de réaliser ce projet de manière efficiente, nous avons fait appel à un ensemble d'outils et de modèles d'Intelligence Artificielle. Pour garantir la qualité de la base de code, nous avons exploité la fonctionnalité \textbf{« Skills »} d'Antigravity permettant à l'agent de s'appuyer sur des instructions métiers spécifiques. De plus, nous avons adopté rigoureusement notre méthode \textbf{RCTF} (Role, Context, Task, Format) lors de la formulation de nos requêtes afin de garder l'agent concentré dans le même contexte de développement, ce qui a drastiquement amélioré ses performances.
+
+\begin{multicols}{2}
+\subsection*{Outils d'Édition et de Test}
+\textbf{Cursor \& Antigravity} \\
+Antigravity a été au cœur de notre développement agentique, tandis que Cursor simplifiait l'interaction dans l'éditeur de code. Un atout majeur d'Antigravity fut son \textit{subagent browser}. Nous l'avons largement sollicité pour automatiser et tester dynamiquement l'interface utilisateur web ainsi que ses comportements en simulation de production.\par
+\vspace{0.3cm}
+\noindent\fbox{\rule{0pt}{2cm} \rule{0.9\linewidth}{0pt}} \\
+\textit{\small (Espace pour l'image : Capture de Cursor ou Antigravity agent)}
+
+\columnbreak
+
+\subsection*{Recherche et Données}
+\textbf{Perplexity AI} \\
+Nous avons utilisé Perplexity pour rechercher les informations historiques et réaliser une géolocalisation détaillée des monuments. \\
+\textbf{Avantage :} Fournit des sources fiables et permet une vérification rapide de vraies données historiques. \\
+\textbf{Inconvénient :} Ne génère ni n'insère de code directement au sein de notre architecture logicielle.
+\end{multicols}
+
+\subsection*{Modèles d'IA exploités dans Antigravity}
+Pour couvrir nos différents besoins technologiques (Backend, UI, tests, requêtes SQL), nous avons utilisé divers modèles de pointe à travers Antigravity :
+
+\begin{multicols}{2}
+\textbf{Gemini 3.1 Pro (High)} \\
+\textbf{Avantage :} Excellente capacité de raisonnement sur l'architecture globale, offrant des implémentations de très haute qualité. \\
+\textbf{Inconvénient :} Légère latence de réponse observée lorsque le contexte fourni est extrêmement long.\par
+\vspace{0.3cm}
+
+\textbf{Google Flash} \\
+\textbf{Avantage :} Vitesse de réponse exceptionnelle, idéal pour un prototypage véloce et des intégrations simples. \\
+\textbf{Inconvénient :} Manque parfois de profondeur face à des logiques de système particulièrement complexes.\par
+
+\columnbreak
+
+\textbf{Claude Sonnet 4.6 (thinking)} \\
+\textbf{Avantage :} Le processus de réflexion (*thinking*) préalable aide grandement le modèle à résoudre et déboguer les algorithmes ardus avant la rédaction du code. \\
+\textbf{Inconvénient :} Gestion parfois délicate lorsqu'il s'agit d'ingérer de vastes fenêtres de longs historiques ou logs.\par
+\vspace{0.3cm}
+
+\textbf{Claude Opus 4.6} \\
+\textbf{Avantage :} Fait preuve d'une compréhension hors-pair et fournit une rigueur ainsi qu'une rédaction logicielle inégalables. \\
+\textbf{Inconvénient :} Modèle assez lourd qui peut se montrer plus lent à l'exécution que les autres alternatives.
+\end{multicols}
+
+\subsection*{Modèles Locaux hors ligne}
+\textbf{kimi-k2.5:cloud (via Ollama)} \\
+Nous avons également déployé des modèles IA de manière locale à l'aide de l'outil Ollama, intégré directement à notre environnement.
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Avantage :} Grâce à une exécution entièrement en local, nous nous assurons d'une confidentialité complète des données de base de code tout en permettant le travail hors-ligne.
+    \item \textbf{Inconvénient :} Les capacités réelles de réflexion du modèle restent intrinsèquement bridées par les limites de notre matériel de développement informatique (mémoire RAM et GPU).
+\end{itemize}
+
+\vspace{0.5cm}
+\begin{center}
+    \fbox{\rule{0pt}{3cm} \rule{0.6\linewidth}{0pt}} \\
+    \textit{\small (Espace pour l'image : Capture du terminal Ollama en fonctionnement ou autre outil local)}
+\end{center}
+
+\clearpage
+\section{Conclusion}
+
+Le projet Taroudant Heritage Shield fournit une solution complète et moderne pour la gestion du patrimoine de Taroudant. En combinant une architecture robuste (React/FastAPI/MySQL) avec des fonctionnalités avancées de sécurité et d'analyse, le système permet aux autorités municipales de prendre des décisions éclairées pour la préservation du patrimoine culturel.
+
+Les principales contributions du projet incluent:
+\begin{itemize}
+    \item L'automatisation du processus d'inspection
+    \item Le scoring automatique de la vulnérabilité
+    \item La génération de rapports chiffrés
+    \item Un système d'alertes en temps réel
+    \item Une interface publique pour les citoyens
+\end{itemize}
+
+% -------------------- Bibliography -----------------
+\begin{thebibliography}{9}
+    \bibitem{fastapi} FastAPI Documentation, \url{https://fastapi.tiangolo.com/}
+    \bibitem{react} React Documentation, \url{https://react.dev/}
+    \bibitem{mysql} MySQL 8.0 Reference Manual, \url{https://dev.mysql.com/doc/}
+    \bibitem{tailwind} Tailwind CSS Documentation, \url{https://tailwindcss.com/docs}
+    \bibitem{vite} Vite Documentation, \url{https://vitejs.dev/guide/}
+\end{thebibliography}
+
+\end{document}

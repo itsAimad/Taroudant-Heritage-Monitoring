@@ -175,12 +175,11 @@ export const inspectionService = {
 
   validateReport: async (
     reportId: number,
-    status:   'validated' | 'disputed',
-    note:     string = ''
+    status:   'validated' | 'disputed'
   ) => {
     const res = await apiFetch(`/api/reports/${reportId}/validate`, {
       method: 'PATCH',
-      body:   JSON.stringify({ status, validation_note: note }),
+      body:   JSON.stringify({ status }),
     })
     return handle(res)
   },

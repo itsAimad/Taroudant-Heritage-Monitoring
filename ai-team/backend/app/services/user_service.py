@@ -12,6 +12,7 @@ _USER_SELECT = """
       u.id_user        AS id,
       u.email,
       u.full_name,
+      u.phone,
       u.organization,
       u.is_active,
       u.created_at,
@@ -98,15 +99,16 @@ def create_user(conn, data: dict) -> int:
         conn,
         """
         INSERT INTO users
-          (email, password_hash, full_name, organization,
+          (email, password_hash, full_name, organization, phone,
            role_id, is_active)
-        VALUES (%s, %s, %s, %s, %s, TRUE)
+        VALUES (%s, %s, %s, %s, %s, %s, TRUE)
         """,
         (
             data['email'],
             hash_password(data['password']),
             data['full_name'],
             data.get('organization', ''),
+            data.get('phone', None),
             role_id,
         )
     )
