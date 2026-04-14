@@ -76,36 +76,32 @@ function ValidateModal({
   onClose,
 }: {
   mode: 'validate' | 'dispute'
-  onConfirm: (note: string) => void
+  onConfirm: () => void
   onClose: () => void
 }) {
-  const [note, setNote] = useState('')
   const isDispute = mode === 'dispute'
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
         className="bg-[#1a1612] border border-sand/15 rounded-xl p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-6">
           <h3 className="font-heading text-sand-light text-lg">
             {isDispute ? 'Dispute Report' : 'Validate Report'}
           </h3>
           <button onClick={onClose}><X className="w-4 h-4 text-sand/40" /></button>
         </div>
-        <label className="text-[11px] uppercase tracking-wider text-sand/40 block mb-1.5">
-          {isDispute ? 'Reason for dispute (required)' : 'Validation note (optional)'}
-        </label>
-        <textarea rows={3} value={note} onChange={e => setNote(e.target.value)}
-          className="w-full border border-sand/15 bg-black/20 rounded px-3 py-2 text-[13px] text-sand/70 outline-none resize-none mb-4"
-        />
+        <p className="text-[13px] text-sand/70 mb-8">
+            Are you sure you want to {isDispute ? 'dispute' : 'validate'} this report? 
+            This action will be recorded in the audit logs.
+        </p>
         <div className="flex gap-3">
           <button onClick={onClose}
             className="flex-1 py-2 rounded border border-sand/15 text-sand/50 text-sm hover:border-sand/30 transition-colors">
             Cancel
           </button>
           <button
-            onClick={() => { if (!isDispute || note.trim()) onConfirm(note) }}
-            disabled={isDispute && !note.trim()}
-            className={`flex-1 py-2 rounded text-sm font-medium disabled:opacity-50 transition-colors ${isDispute
+            onClick={() => onConfirm()}
+            className={`flex-1 py-2 rounded text-sm font-medium transition-colors ${isDispute
                 ? 'bg-red-900/50 text-red-300 border border-red-800/50 hover:bg-red-900/70'
                 : 'bg-emerald-900/50 text-emerald-300 border border-emerald-800/50 hover:bg-emerald-900/70'
               }`}>
@@ -143,11 +139,11 @@ export default function InspectionView() {
     }
   }
 
-  const handleValidateReport = async (note: string) => {
+  const handleValidateReport = async () => {
     if (!inspection?.report) return
     const status = modal === 'dispute' ? 'disputed' : 'validated'
     try {
-      await inspectionService.validateReport(inspection.report.report_id, status, note)
+      await inspectionService.validateReport(inspection.report.report_id, status)
       setInspection((prev: any) => ({
         ...prev,
         report: { ...prev.report, status }
@@ -352,6 +348,27 @@ export default function InspectionView() {
                 <Badge variant="outline" className="capitalize text-xs">{inspection.report.status}</Badge>
               </div>
               <p className="text-sm text-muted-foreground mb-4">{inspection.report.title}</p>
+              
+              {inspection.report.status === 'validated' && inspection.report.validated_by_name && (
+                <div className="mb-4 p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-lg flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-emerald-500/60 font-bold">certified by</div>
+                    <div className="text-sm font-medium text-foreground">
+                      {inspection.report.validated_by_name}
+                      <span className="text-muted-foreground mx-2 font-normal">•</span>
+                      <span className="text-muted-foreground font-normal">
+                        {new Date(inspection.report.validated_at).toLocaleDateString(undefined, { 
+                          year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' 
+                        })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {!['validated', 'disputed'].includes(inspection.report.status) && (
                 <div className="flex gap-3">
                   <Button onClick={() => setModal('validate')}
