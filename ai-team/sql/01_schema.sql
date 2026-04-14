@@ -285,7 +285,6 @@ CREATE TABLE IF NOT EXISTS reports (
   status        ENUM('draft', 'final', 'validated', 'disputed', 'archived') DEFAULT 'draft',
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   validated_at  TIMESTAMP NULL,
-  validation_note TEXT,
 
   -- Reports are always tied to a specific monument for long-term tracking
   CONSTRAINT fk_reports_monument
@@ -353,8 +352,8 @@ CREATE TABLE IF NOT EXISTS access_requests (
   id              INT AUTO_INCREMENT PRIMARY KEY,
   full_name       VARCHAR(150)  NOT NULL,
   email           VARCHAR(255)  NOT NULL,
-  organization    VARCHAR(200)  NOT NULL,
-  -- role stores the role_name string (inspector/authority)
+  phone           VARCHAR(20),
+  organization    VARCHAR(200)  NOT NULL,  -- role stores the role_name string (inspector/authority)
   -- validated against roles table at application level
   requested_role_id           INT   NOT NULL,
   reason          TEXT          NOT NULL,
