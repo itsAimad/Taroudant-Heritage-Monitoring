@@ -27,7 +27,7 @@ const Navbar = () => {
 
   const authLinks = [
     { to: '/dashboard', label: 'Dashboard' },
-    { to: '/risk-lab', label: 'Risk Lab' },
+    { to: '/risk-lab', label: 'Risk Lab', roles: ['admin', 'inspector', 'authority'] },
     { to: '/analytics', label: 'Analytics' },
   ];
 
@@ -104,11 +104,13 @@ const Navbar = () => {
                 {l.label}
               </NavLink>
             ))}
-            {isAuthenticated && authLinks.map(l => (
-              <Link key={l.to} to={l.to} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === l.to ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
-                {l.label}
-              </Link>
-            ))}
+            {isAuthenticated && authLinks
+              .filter(l => !(l as any).roles || ((l as any).roles.includes(user?.role)))
+              .map(l => (
+                <Link key={l.to} to={l.to} className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === l.to ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
+                  {l.label}
+                </Link>
+              ))}
             {isAuthenticated && user?.role === 'admin' && (
               <>
                 <Link to="/admin/users" className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${location.pathname === '/admin/users' ? (isHome ? 'text-copper-light' : 'text-primary') : (isHome ? 'text-sand/70 hover:text-sand' : 'text-muted-foreground hover:text-foreground')}`}>
@@ -190,9 +192,11 @@ const Navbar = () => {
                 {l.label}
               </NavLink>
             ))}
-            {isAuthenticated && authLinks.map(l => (
-              <Link key={l.to} to={l.to} onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>{l.label}</Link>
-            ))}
+            {isAuthenticated && authLinks
+              .filter(l => !(l as any).roles || ((l as any).roles.includes(user?.role)))
+              .map(l => (
+                <Link key={l.to} to={l.to} onClick={() => setMobileOpen(false)} className={`block px-3 py-2 rounded-md text-sm ${isHome ? 'text-sand' : 'text-foreground'}`}>{l.label}</Link>
+              ))}
             {isAuthenticated ? (
               <>
                 {user?.role === 'admin' && (
