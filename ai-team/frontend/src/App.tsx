@@ -116,6 +116,19 @@ const AppRoutes = () => {
             }
           />
           {/* Protected Routes */}
+          {/* Shared Tools (Inspector + Authority + Admin) */}
+          <Route element={<PrivateRoute allowedRoles={['inspector', 'authority', 'admin']} />}>
+            <Route
+              path="/risk-lab"
+              element={
+                <PageTransition>
+                  <RiskLab />
+                </PageTransition>
+              }
+            />
+          </Route>
+
+          {/* Authenticated Routes */}
           <Route element={<PrivateRoute />}>
             <Route
               path="/dashboard"
@@ -126,14 +139,6 @@ const AppRoutes = () => {
               }
             />
 
-            <Route
-              path="/risk-lab"
-              element={
-                <PageTransition>
-                  <RiskLab />
-                </PageTransition>
-              }
-            />
             <Route
               path="/analytics"
               element={
