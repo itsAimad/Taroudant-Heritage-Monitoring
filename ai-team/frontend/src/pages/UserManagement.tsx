@@ -14,7 +14,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState<any>(null);
   const [isAddModalOpen, setAddModalOpen] = useState(false);
-  const [newUserParams, setNewUserParams] = useState({ email: '', full_name: '', password: '', role: 'viewer', organization: '' });
+  const [newUserParams, setNewUserParams] = useState({ email: '', full_name: '', password: '', role: 'viewer', organization: '', phone: '' });
 
   // Use effect for redirection to avoid "navigate in render body" warning/crash
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function UserManagement() {
     try {
       await adminService.createUser({ ...newUserParams, confirm_password: newUserParams.password });
       setAddModalOpen(false);
-      setNewUserParams({ email: '', full_name: '', password: '', role: 'viewer', organization: '' });
+      setNewUserParams({ email: '', full_name: '', password: '', role: 'viewer', organization: '', phone: '' });
       fetchUsers();
     } catch (err: any) {
       alert(`Failed to create user: ${err.message || 'Unknown error'}`);
@@ -120,6 +120,10 @@ export default function UserManagement() {
                   <input className="w-full bg-background border border-border rounded p-2 text-sm text-foreground focus:ring-1" value={newUserParams.organization} onChange={e => setNewUserParams({ ...newUserParams, organization: e.target.value })} />
                 </div>
               </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground uppercase mb-1 block">Phone <span className="normal-case font-normal text-muted-foreground/60">(optional)</span></label>
+                <input type="tel" className="w-full bg-background border border-border rounded p-2 text-sm text-foreground focus:ring-1" placeholder="+212 6XX XXX XXX" value={newUserParams.phone} onChange={e => setNewUserParams({ ...newUserParams, phone: e.target.value })} />
+              </div>
               <div className="pt-4 flex justify-end gap-3">
                 <Button type="button" variant="ghost" onClick={() => setAddModalOpen(false)}>Cancel</Button>
                 <Button type="submit">Create User</Button>
@@ -147,6 +151,7 @@ export default function UserManagement() {
                 <tr className="border-b border-border bg-muted/50">
                   <th className="text-left px-6 py-4 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Information</th>
                   <th className="text-left px-6 py-4 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Email</th>
+                  <th className="text-left px-6 py-4 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Phone</th>
                   <th className="text-left px-6 py-4 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Role</th>
                   <th className="text-left px-6 py-4 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Organization</th>
                   <th className="text-left px-6 py-4 text-muted-foreground font-semibold uppercase tracking-wider text-[10px]">Status</th>
@@ -172,6 +177,11 @@ export default function UserManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">{u.email}</td>
+                    <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
+                      {u.phone
+                        ? <a href={`tel:${u.phone}`} className="hover:text-foreground transition-colors">{u.phone}</a>
+                        : <span className="opacity-30">—</span>}
+                    </td>
                     <td className="px-6 py-4">
                       {u.id !== user?.id ? (
                         <select
