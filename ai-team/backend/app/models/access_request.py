@@ -5,6 +5,7 @@ from datetime import datetime
 class AccessRequestCreate(BaseModel):
     full_name:         str
     email:             EmailStr
+    phone:             Optional[str] = None
     organization:      str
     requested_role_id: int  # 2=inspector, 3=authority
     reason:            str
@@ -34,6 +35,7 @@ class AccessRequestResponse(BaseModel):
     id:                int
     full_name:         str
     email:             str
+    phone:             Optional[str] = None
     organization:      str
     requested_role_id: int
     role_name:         Optional[str] = None
