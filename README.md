@@ -126,7 +126,7 @@ Experience the results of both development methodologies through these video wal
 
 | 🤖 AI-Assisted Team (Modern) | 👥 Traditional Team (Classic) |
 | :---: | :---: |
-| [![AI Team Demo](https://img.shields.io/badge/Watch_Demo-AI_Team_App-EE4C2C?style=for-the-badge&logo=googledrive&logoColor=white)](INSERT_AI_TEAM_DRIVE_LINK_HERE) | [![Traditional Team Demo](https://img.shields.io/badge/Watch_Demo-Traditional_Team-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/13IRdhkT1Bv3UKR-u5j6eU4ns7SKAFGsQ/view?usp=sharing) |
+| [![AI Team Demo](https://img.shields.io/badge/Watch_Demo-AI_Team_App-EE4C2C?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/1mu3MUjRnnhQOosc7sDdiTJosYRrNO1He/view?usp=sharing) | [![Traditional Team Demo](https://img.shields.io/badge/Watch_Demo-Traditional_Team-4285F4?style=for-the-badge&logo=googledrive&logoColor=white)](https://drive.google.com/file/d/13IRdhkT1Bv3UKR-u5j6eU4ns7SKAFGsQ/view?usp=sharing) |
 | *Showcasing high-speed React/FastAPI integration* | *Showcasing traditional development reliability* |
 
 </div>
