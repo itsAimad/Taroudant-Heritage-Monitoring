@@ -768,6 +768,26 @@ The seed data includes Taroudant's most significant heritage sites:
 
 ---
 
+## 🤝 Meet the Teams
+
+This project is the culmination of a collaborative effort across multiple specialized teams, each bringing unique expertise to build, secure, and validate the platform.
+
+<div align="center">
+
+| 🤖 AI-Team | 👥 Team Without AI |
+| :--- | :--- |
+| ![AI Team](https://img.shields.io/badge/Team-AI--Assisted-8A2BE2?style=for-the-badge&logo=openai&logoColor=white)<br><br>• **Aimad Bouya**<br>&nbsp;&nbsp;*(Leader & AI implementation)*<br>• **Khadija Bourais**<br>&nbsp;&nbsp;*(Doc, Backend & Frontend)*<br>• **Hiba Bouzid**<br>&nbsp;&nbsp;*(Doc, Backend & Frontend)* | ![Traditional Team](https://img.shields.io/badge/Team-Traditional-4285F4?style=for-the-badge&logo=javascript&logoColor=white)<br><br>• **Fatima Bougrou**<br>&nbsp;&nbsp;*(Project Lead & Architecture)*<br>• **Nadir Boukrioui**<br>&nbsp;&nbsp;*(Backend & Database)*<br>• **Ranya Berroukech**<br>&nbsp;&nbsp;*(Frontend & UI/UX)* |
+
+<br/>
+
+| 🔴 Red Team | 🔵 Blue Team | 🧪 QA Team |
+| :--- | :--- | :--- |
+| ![Red Team](https://img.shields.io/badge/Team-Red-DC143C?style=for-the-badge&logo=kalilinux&logoColor=white)<br><br>• **Mohamed Bensbaa**<br>&nbsp;&nbsp;*(Lead Penetration Tester)*<br>• **Oumaima Bentoumi**<br>&nbsp;&nbsp;*(Vulnerability Analyst)* | ![Blue Team](https://img.shields.io/badge/Team-Blue-0052CC?style=for-the-badge&logo=docker&logoColor=white)<br><br>• **Fatima Benzeroual**<br>&nbsp;&nbsp;*(Security Operations Lead)*<br>• **Ikram Boudrifi**<br>&nbsp;&nbsp;*(Infrastructure & Defense)* | ![QA Team](https://img.shields.io/badge/Team-QA-2E8B57?style=for-the-badge&logo=cypress&logoColor=white)<br><br>• **Aya Chahmoud**<br>&nbsp;&nbsp;*(Test Automation Engineer)*<br>• **Yasser Chaouki**<br>&nbsp;&nbsp;*(Manual Testing & Validation)* |
+
+</div>
+
+---
+
 ## 📜 License & Academic Use
 
 This project is developed for **academic purposes** as part of a database systems and web development curriculum. All monument data and historical references are based on publicly available cultural heritage documentation.
